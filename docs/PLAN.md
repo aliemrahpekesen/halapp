@@ -1,74 +1,60 @@
-# HalApp — Ürünleştirme Planı
+# HalBoxPro — Ürünleştirme / İyileştirme Planı
 
-**Sürüm:** 0.1 (Taslak) · **Tarih:** 2026-07-02 · İlgili doküman: [PRD.md](./PRD.md)
+**Sürüm:** 1.0 · **Tarih:** 2026-07-02
+**İlgili:** [PRD.md](./PRD.md) · [AUDIT.md](./AUDIT.md)
 
-Bu plan, mevcut HalBox Pro uygulamasından yola çıkarak daha kaliteli bir hal yönetim
-ürünü (HalApp) geliştirmek için izlenecek adımları tanımlar.
-
----
-
-## Adım 0 — Mevcut Uygulamanın Canlı Denetimi (ön şart)
-
-> Bu çalışma ortamının ağ politikası `test.halboxpro.esesoft.com` erişimine izin
-> vermediği için denetim henüz yapılamadı. Erişim açıldığında aşağıdaki kontrol
-> listesi uygulanacak ve PRD'deki [VARSAYIM] maddeleri doğrulanacaktır.
-
-**Denetim kontrol listesi (PM gözüyle):**
-
-1. **Envanter:** Menüdeki tüm sayfaların/modüllerin listesi, ekran görüntüleriyle.
-2. **Aktör kapsaması:** Hangi roller var, yetkilendirme ne kadar ince taneli?
-3. **Kritik akış süreleri:** Bir satış kalemi girişi kaç tıklama/saniye? Mal kabul? Hesap kesimi?
-4. **HKS entegrasyonu:** Künye/bildirim otomatik mi manuel mi? Hata yönetimi var mı?
-5. **Kesinti hesaplamaları:** Komisyon, rüsum, stopaj, Bağ-Kur, navlun, hammaliye doğru ve parametrik mi?
-6. **Eksik modüller:** Boş kasa takibi, çek-senet, e-belge, bildirimler, mobil var mı?
-7. **Raporlama:** Hangi raporlar var, dışa aktarma esnekliği?
-8. **UX sorunları:** Form tasarımı, hata mesajları, mobil uyum, performans gözlemleri.
-9. **Veri modeli çıkarımı:** Ekranlardan görülen alanlarla mevcut veri modelinin kabaca haritalanması (geçiş aracı için girdi).
-
-**Çıktı:** `docs/AUDIT.md` — bulgu listesi (var/yok/kısmen) + ekran görüntüleri + PRD güncellemeleri.
+Bu plan, mevcut (olgun) HalBoxPro uygulamasını gerçek boşlukları kapatarak ve
+deneyimi derinleştirerek bir üst kaliteye taşımak için izlenecek adımları tanımlar.
+Mevcut modül envanteri [AUDIT.md](./AUDIT.md)'de kanıta dayalı olarak listelenmiştir.
 
 ---
 
-## Adım 1 — Doğrulama ve Önceliklendirme (1-2 hafta)
+## Adım 0 — Canlı Doğrulama (1 hafta)
 
-- 3-5 gerçek kullanıcıyla (patron, kâtip, muhasebeci) görüşme; günlük akışın yerinde gözlemi.
-- PRD'nin FR listesinin MoSCoW ile önceliklendirilmesi (Must/Should/Could/Won't).
-- Açık soruların (PRD §10) ürün sahibiyle kapatılması: hedef aktör, fiyatlama, segment kapsamı.
-- **Çıktı:** PRD v1.0 (onaylı) + MVP kapsam dondurması.
+Uygulamanın derlenmiş kaynağı analiz edildi; ancak UX/performans ancak canlı
+oturumla gözlemlenebilir (sandbox tarayıcısı proxy üzerinden siteyi render edemedi).
 
-## Adım 2 — Teknik Temel (2-3 hafta, MVP ile paralel başlar)
+**Yapılacaklar:**
+1. Yerel bir tarayıcıdan `selamikoc@gmail.com` ile giriş; tüm modüllerin ekran görüntüleri.
+2. [AUDIT.md](./AUDIT.md) §6 "gözlemlenemedi" maddelerinin doğrulanması: satış giriş hızı, veri doğrulama, mobil offline, performans.
+3. **Kritik netleştirme:** HKS otomatik devlet bildirimi sunucu tarafında var mı? (R2/G2)
+4. 3-5 gerçek kullanıcıyla (patron, kâtip, muhasebe, tahsilatçı) kısa saha gözlemi.
 
-- Mimari karar kayıtları (ADR): teknoloji yığını, multi-tenant stratejisi, offline stratejisi.
-- HKS servis erişimi ve e-belge entegratörü için resmi başvuru/anlaşmalar (uzun sürebilir — erken başla).
-- Tasarım sistemi: hızlı veri girişine odaklı bileşen kütüphanesi, "hal modu" tema.
-- CI/CD, test ve staging ortamları.
+**Çıktı:** Doğrulanmış AUDIT + kesinleşmiş öncelik sırası.
 
-## Adım 3 — MVP Geliştirme (3-4 ay)
+## Adım 1 — En Yüksek ROI'li Boşluklar (2-3 ay)
 
-Kapsam (PRD §8, Faz 1): Mal kabul & ambar, hızlı satış, HKS motoru, müstahsil hesap
-kesimi, cari/veresiye, temel kasa-banka, rol & denetim izi.
+- **R1 Boş kasa / ambalaj takibi** (yeni modül) — sektörün görünmez kayıp kalemi.
+- **R2 HKS bildirim izleme/otomasyonu** — ceza riskini sıfırlar.
+- **R8 Deneyim & performans sertleştirme** — giriş hızı, doğrulama, mobil offline, rapor performansı.
 
-- 2 haftalık sprintler; her sprint sonunda gerçek kâtiple kullanılabilirlik testi.
-- Satış ekranı ilk sprintlerde prototiplenir ve sahada denenir (en riskli/kritik ekran).
-- **Çıkış kriteri:** 2-3 pilot işletme bir tam haftayı (yoğun sabah dahil) yeni sistemle kapatır.
+Yaklaşım: 2 haftalık sprintler; her sprintte gerçek kâtiple kullanılabilirlik testi.
+Çıkış kriteri: pilot işletmede boş kasa mutabakatı ve HKS panosu canlı kullanımda.
 
-## Adım 4 — Geçiş Sürümü (2-3 ay)
+## Adım 2 — Farklılaşma (2-3 ay)
 
-Kapsam (Faz 2): boş kasa modülü, e-belge, raporlama genişletme, SMS/WhatsApp, kantar/banka entegrasyonları.
+- **R3 Müstahsil self-servis portalı** (mevcut e-müstahsil + WhatsApp üzerine).
+- **R4 Kantar entegrasyonu** (net kg doğruluğu).
+- **R5 BI/analitik derinleştirme** (trend, kıyas, zamanlanmış rapor).
 
-- Mevcut HalBox Pro'dan **veri taşıma aracı**: cariler, bakiyeler, açık partiler, kap bakiyeleri.
-- Paralel çalışma dönemi ve geri dönüş planı; kullanıcı eğitim materyalleri.
-- **Çıkış kriteri:** Mevcut müşterilerin eski üründen kesintisiz geçişi.
+## Adım 3 — Niş & Yeni Gelir (sürekli)
 
-## Adım 5 — Farklılaşma (sürekli)
-
-Mobil uygulama, müstahsil portalı, sipariş portalı, ihracat modülü, muhasebe
-entegrasyonları, fiyat analitiği. Önceliklendirme pilot geri bildirimiyle yapılır.
+- **R6 Alıcı portalı & gece sipariş.**
+- **R7 Su ürünleri izlenebilirlik/tazelik; opsiyonel mezat akışı.**
 
 ---
 
 ## Yönetişim
 
-- Haftalık ürün değerlendirmesi: KPI panosu (PRD §9) + sprint demo.
-- Her faz çıkışında go/no-go: pilot geri bildirimi + KPI eşikleri.
-- Mevzuat takibi (HKS, e-belge, kesinti oranları) için çeyreklik gözden geçirme.
+- Her faz çıkışında go/no-go: pilot geri bildirimi + KPI eşikleri ([PRD.md](./PRD.md) §7).
+- Mevcut audit log ve change-request akışları üzerinden değişiklik yönetimi.
+- Mevzuat (HKS, e-belge, kesinti oranları) için çeyreklik gözden geçirme.
+
+---
+
+## Teknik Notlar (mevcut mimariye saygı)
+
+- Ürün .NET + React (Vite/Ant Design) + SignalR + çok kiracılı SaaS; e-belge Uyumsoft.
+- Yeni modüller mevcut mimariye eklemeli olmalı (yeniden yazım değil):
+  boş kasa ve HKS panosu için yeni `/api/halboxpro/*` uçları ve React route'ları.
+- Mobil PWA ve offline kuyruk mevcut; R8 kapsamında sağlamlaştırılmalı.
