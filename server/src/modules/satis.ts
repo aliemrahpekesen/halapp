@@ -8,7 +8,9 @@ import { assertCan } from '../core/rbac.js';
 import { writeAudit } from '../core/audit.js';
 import { badRequest, notFound } from '../core/errors.js';
 import { pageParams } from '../core/pagination.js';
+import { assertOwned } from '../core/owned.js';
 import { round2, sum } from '../lib/money.js';
+import { computeDeductions } from '../lib/deductions.js';
 import { postCari, postKasa, postStok, reverseDocument } from '../lib/ledger.js';
 
 const satirSchema = z.object({
@@ -54,12 +56,10 @@ async function computeTotals(db: DB, tenantId: string, tip: string, satirlar: z.
 
   const brut = sum(lines.map((l) => l.tutar));
   if (tip === 'ALIS_SATIS') return { brut, komisyon: 0, komisyonKdv: 0, rusum: 0, stopaj: 0, net: brut, lines };
-  const komisyon = round2(brut * komisyonOrani);
-  const komisyonKdv = round2(komisyon * komisyonKdvOrani);
-  const stopaj = round2(brut * gvOrani);
-  const rusum = sum(lines.map((l) => l.tutar * l.rusumOrani));
-  const net = round2(brut - komisyon - komisyonKdv - stopaj - rusum);
-  return { brut, komisyon, komisyonKdv, rusum, stopaj, net, lines };
+  // Single source of truth: the tested deduction engine, with per-line rüsum.
+  const rusumTutar = sum(lines.map((l) => l.tutar * l.rusumOrani));
+  const d = computeDeductions({ brut, komisyonOrani, komisyonKdvOrani, gelirVergisiOrani: gvOrani, rusumTutar });
+  return { brut, komisyon: d.komisyon, komisyonKdv: d.komisyonKdv, rusum: d.rusum, stopaj: d.stopaj, net: d.net, lines };
 }
 
 async function loadFis(db: DB, tenantId: string, id: string) {
@@ -79,6 +79,12 @@ export async function registerSatis(app: FastifyInstance) {
     if (data.odemeTipi === 'PESIN' && !data.kasaId) throw badRequest('Peşin satışta kasa zorunlu');
     const db = getDb();
     const tenantId = req.ctx.tenantId;
+
+    // Validate referenced master data belongs to this tenant.
+    await assertOwned(db, s.cariHesaplar, tenantId, data.aliciCariId, 'Alıcı cari');
+    if (data.mustahsilCariId) await assertOwned(db, s.cariHesaplar, tenantId, data.mustahsilCariId, 'Müstahsil cari');
+    await assertOwned(db, s.depolar, tenantId, data.depoId, 'Depo');
+    if (data.kasaId) await assertOwned(db, s.kasalar, tenantId, data.kasaId, 'Kasa');
 
     const fisId = nanoid();
     const totals = await computeTotals(db, tenantId, data.tip, data.satirlar);
@@ -102,6 +108,7 @@ export async function registerSatis(app: FastifyInstance) {
         aliciCariId: data.aliciCariId, mustahsilCariId: data.mustahsilCariId ?? null,
         kunyeNo: data.kunyeNo ?? null, depoId: data.depoId, kasaId: data.kasaId ?? null,
         odemeTipi: data.odemeTipi, brutTutar: totals.brut, komisyonTutar: totals.komisyon,
+        komisyonKdvTutar: totals.komisyonKdv,
         rusumTutar: totals.rusum, stopajTutar: totals.stopaj, tevkifatTutar: 0,
         netTutar: totals.net, durum: 'ISLENDI',
       });

@@ -146,6 +146,7 @@ export async function registerYonetim(app: FastifyInstance) {
 
   // ---- Main dashboard KPIs ----
   app.get('/api/dashboard', async (req) => {
+    assertCan(req.ctx.role, 'rapor', 'read');
     const db = getDb(); const tid = req.ctx.tenantId;
     const [satisAdet] = await db.select({ v: sql<number>`cast(count(*) as integer)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
     const [kasa] = await db.select({ v: sql<number>`coalesce(sum(${s.kasalar.bakiye}),0)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));

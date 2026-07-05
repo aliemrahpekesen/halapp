@@ -13,18 +13,28 @@ import { authRoutes } from './auth/routes.js';
 import { registerModules } from './modules/index.js';
 import { initDb } from './db/index.js';
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'halboxpro-dev-secret-change-in-prod';
+const DEV_SECRET = 'halboxpro-dev-secret-change-in-prod';
+export const JWT_SECRET = process.env.JWT_SECRET || DEV_SECRET;
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 const IS_TEST = process.env.NODE_ENV === 'test';
+
+// Fail-fast: never run in production with the public dev secret or a weak one.
+if (IS_PROD && (JWT_SECRET === DEV_SECRET || JWT_SECRET.length < 24)) {
+  throw new Error('JWT_SECRET must be set to a strong (>=24 char) value in production');
+}
 
 const PUBLIC_PREFIXES = ['/api/auth/register', '/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password', '/health'];
 
 export async function buildApp(): Promise<FastifyInstance> {
   await initDb();
-  const app = Fastify({ logger: false, trustProxy: true, bodyLimit: 1_048_576 });
+  // Trust exactly one proxy hop (the platform edge) so req.ip is the real client
+  // and cannot be spoofed via a prepended X-Forwarded-For.
+  const app = Fastify({ logger: false, trustProxy: 1, bodyLimit: 1_048_576 });
 
-  await app.register(cors, { origin: true });
+  // Same-origin SPA; restrict CORS to the known app origin(s) when configured.
+  const appUrl = process.env.APP_URL;
+  await app.register(cors, { origin: appUrl ? [appUrl] : true });
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {

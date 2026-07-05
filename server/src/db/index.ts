@@ -47,9 +47,11 @@ async function build(): Promise<DB> {
   if (url) {
     const postgres = (await import('postgres')).default;
     const { drizzle } = await import('drizzle-orm/postgres-js');
-    // Supabase/Neon poolers: disable prepared statements for transaction pooling;
-    // require SSL (managed Postgres) without strict cert verification.
-    const client = postgres(url, { prepare: false, max: 3, ssl: 'require' });
+    // Supabase/Neon poolers: disable prepared statements for transaction pooling.
+    // SSL is always on; set DB_SSL=verify to require full certificate verification
+    // (needs the provider CA available to Node) for hardened production.
+    const ssl = process.env.DB_SSL === 'verify' ? ('verify-full' as const) : ('require' as const);
+    const client = postgres(url, { prepare: false, max: 3, ssl });
     db = drizzle(client, { schema });
   } else {
     const { PGlite } = await import('@electric-sql/pglite');
@@ -60,6 +62,22 @@ async function build(): Promise<DB> {
   // Apply schema (idempotent) — safe on Postgres and PGlite alike.
   for (const stmt of allTables().flatMap(ddlFor)) {
     await db.execute(sql.raw(stmt));
+  }
+  // Self-healing: add any columns introduced after a table was first created
+  // (CREATE TABLE IF NOT EXISTS won't add them). ADD COLUMN IF NOT EXISTS is idempotent.
+  for (const table of allTables()) {
+    const cfg = getTableConfig(table);
+    for (const c of cfg.columns) {
+      if (c.primary) continue;
+      let stmt = `ALTER TABLE "${cfg.name}" ADD COLUMN IF NOT EXISTS "${c.name}" ${c.getSQLType()}`;
+      if (c.hasDefault) {
+        const d = c.default as unknown;
+        if (c.name === 'created_at') stmt += ' DEFAULT now()';
+        else if (typeof d === 'boolean' || typeof d === 'number') stmt += ` DEFAULT ${d}`;
+        else if (typeof d === 'string') stmt += ` DEFAULT '${d}'`;
+      }
+      await db.execute(sql.raw(stmt));
+    }
   }
   return db;
 }

@@ -8,6 +8,7 @@ import { assertCan } from '../core/rbac.js';
 import { writeAudit } from '../core/audit.js';
 import { badRequest, notFound } from '../core/errors.js';
 import { pageParams } from '../core/pagination.js';
+import { assertOwned } from '../core/owned.js';
 import { round2 } from '../lib/money.js';
 import { postCari } from '../lib/ledger.js';
 
@@ -57,6 +58,8 @@ export async function registerCari(app: FastifyInstance) {
     if (p.data.borcluCariId === p.data.alacakliCariId) throw badRequest('Borçlu ve alacaklı cari aynı olamaz');
     const db = getDb();
     const tenantId = req.ctx.tenantId;
+    await assertOwned(db, s.cariHesaplar, tenantId, p.data.borcluCariId, 'Borçlu cari');
+    await assertOwned(db, s.cariHesaplar, tenantId, p.data.alacakliCariId, 'Alacaklı cari');
     const fisId = nanoid();
     const no = `MH-${nanoid(8).toUpperCase()}`;
     await transaction(async (tx) => {

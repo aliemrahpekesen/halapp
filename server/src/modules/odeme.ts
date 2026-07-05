@@ -8,7 +8,7 @@ import { assertCan } from '../core/rbac.js';
 import { writeAudit } from '../core/audit.js';
 import { badRequest, notFound } from '../core/errors.js';
 import { round2 } from '../lib/money.js';
-import { postCari, postKasa } from '../lib/ledger.js';
+import { postCari, postKasa, reverseDocument } from '../lib/ledger.js';
 import { getPaymentProvider } from '../providers/odeme.js';
 
 export async function registerOdeme(app: FastifyInstance) {
@@ -67,7 +67,11 @@ export async function registerOdeme(app: FastifyInstance) {
     if (odeme.durum !== 'BASARILI') throw badRequest('Sadece başarılı ödemeler iade edilebilir');
     const provider = getPaymentProvider();
     await provider.refund(odeme.token!);
-    await db.update(s.odemeler).set({ durum: 'IADE' }).where(and(eq(s.odemeler.tenantId, tenantId), eq(s.odemeler.id, id)));
+    // Reverse the collection's ledger effects (kasa giriş + cari alacak share belgeId = odeme.id).
+    await transaction(async (tx) => {
+      await reverseDocument(tx, tenantId, odeme.id);
+      await tx.update(s.odemeler).set({ durum: 'IADE' }).where(and(eq(s.odemeler.tenantId, tenantId), eq(s.odemeler.id, id)));
+    });
     await writeAudit(db, req.ctx, 'odeme', id, 'refund', odeme, { durum: 'IADE' });
     return { id, durum: 'IADE' };
   });

@@ -14,8 +14,9 @@ export interface DeductionInput {
   brut: number;
   komisyonOrani: number; // <= 0.08 by law
   komisyonKdvOrani: number; // e.g. 0.20
-  rusumOrani: number; // e.g. 0.02
   gelirVergisiOrani: number; // stopaj, e.g. 0.02
+  rusumOrani?: number; // flat rate over brüt (e.g. 0.02)
+  rusumTutar?: number; // OR a precomputed rüsum amount (per-line, from species rates)
   tevkifatOrani?: number; // optional additional withholding
 }
 
@@ -33,7 +34,8 @@ export interface DeductionResult {
 export const KOMISYON_YASAL_TAVAN = 0.08;
 
 export function computeDeductions(input: DeductionInput): DeductionResult {
-  const { brut, komisyonOrani, komisyonKdvOrani, rusumOrani, gelirVergisiOrani } = input;
+  const { brut, komisyonOrani, komisyonKdvOrani, gelirVergisiOrani } = input;
+  const rusumOrani = input.rusumOrani ?? 0;
   if (brut < 0) throw new Error('Brüt tutar negatif olamaz');
   if (komisyonOrani < 0 || komisyonOrani > KOMISYON_YASAL_TAVAN) {
     throw new Error(`Komisyon oranı 0 ile %${KOMISYON_YASAL_TAVAN * 100} arasında olmalıdır`);
@@ -44,7 +46,7 @@ export function computeDeductions(input: DeductionInput): DeductionResult {
 
   const komisyon = round2(brut * komisyonOrani);
   const komisyonKdv = round2(komisyon * komisyonKdvOrani);
-  const rusum = round2(brut * rusumOrani);
+  const rusum = input.rusumTutar !== undefined ? round2(input.rusumTutar) : round2(brut * rusumOrani);
   const stopaj = round2(brut * gelirVergisiOrani);
   const tevkifat = round2(brut * (input.tevkifatOrani ?? 0));
 

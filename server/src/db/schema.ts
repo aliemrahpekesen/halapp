@@ -197,6 +197,7 @@ export const fisler = pgTable('fisler', {
   aliciCariId: text('alici_cari_id'), mustahsilCariId: text('mustahsil_cari_id'), kunyeNo: text('kunye_no'),
   depoId: text('depo_id'), kasaId: text('kasa_id'), odemeTipi: text('odeme_tipi').notNull().default('VERESIYE'),
   brutTutar: doublePrecision('brut_tutar').notNull().default(0), komisyonTutar: doublePrecision('komisyon_tutar').notNull().default(0),
+  komisyonKdvTutar: doublePrecision('komisyon_kdv_tutar').notNull().default(0),
   rusumTutar: doublePrecision('rusum_tutar').notNull().default(0), stopajTutar: doublePrecision('stopaj_tutar').notNull().default(0),
   tevkifatTutar: doublePrecision('tevkifat_tutar').notNull().default(0), netTutar: doublePrecision('net_tutar').notNull().default(0),
   durum: text('durum').notNull().default('TASLAK'), efaturaId: text('efatura_id'), createdAt: ts(),

@@ -5,6 +5,9 @@ import * as s from '../db/schema.js';
 import { assertCan } from '../core/rbac.js';
 import { toCsv } from '../lib/export.js';
 import { badRequest } from '../core/errors.js';
+import { round2 } from '../lib/money.js';
+
+const SALE_TIPS = sql`('SATIS','ALIS_SATIS')`;
 
 function dateConds(table: any, q: { baslangic?: string; bitis?: string }) {
   const c: any[] = [];
@@ -21,11 +24,14 @@ export async function registerRapor(app: FastifyInstance) {
     const q = req.query as any;
     const rows = await db.select({
       no: s.fisler.no, tarih: s.fisler.tarih, brut: s.fisler.brutTutar, komisyon: s.fisler.komisyonTutar,
-      rusum: s.fisler.rusumTutar, stopaj: s.fisler.stopajTutar, net: s.fisler.netTutar,
+      komisyonKdv: s.fisler.komisyonKdvTutar, rusum: s.fisler.rusumTutar, stopaj: s.fisler.stopajTutar, net: s.fisler.netTutar,
     }).from(s.fisler).where(and(eq(s.fisler.tenantId, req.ctx.tenantId), eq(s.fisler.durum, 'ISLENDI'), eq(s.fisler.tip, 'SATIS'), ...dateConds(s.fisler, q)));
-    const toplam = rows.reduce((a: any, r: any) => ({
-      brut: a.brut + r.brut, komisyon: a.komisyon + r.komisyon, rusum: a.rusum + r.rusum, stopaj: a.stopaj + r.stopaj, net: a.net + r.net,
-    }), { brut: 0, komisyon: 0, rusum: 0, stopaj: 0, net: 0 });
+    const t = rows.reduce((a: any, r: any) => ({
+      brut: a.brut + r.brut, komisyon: a.komisyon + r.komisyon, komisyonKdv: a.komisyonKdv + r.komisyonKdv,
+      rusum: a.rusum + r.rusum, stopaj: a.stopaj + r.stopaj, net: a.net + r.net,
+    }), { brut: 0, komisyon: 0, komisyonKdv: 0, rusum: 0, stopaj: 0, net: 0 });
+    // Round accumulated totals to avoid float drift; totals now reconcile: brut - (komisyon+kdv+rusum+stopaj) = net.
+    const toplam = Object.fromEntries(Object.entries(t).map(([k, v]) => [k, round2(v as number)]));
     return { satirlar: rows, toplam };
   });
 
@@ -56,7 +62,7 @@ export async function registerRapor(app: FastifyInstance) {
   app.get('/api/rapor/mali-analiz', async (req) => {
     assertCan(req.ctx.role, 'rapor', 'read');
     const db = getDb(); const tid = req.ctx.tenantId;
-    const [ciro] = await db.select({ v: sql<number>`coalesce(sum(${s.fisler.brutTutar}),0)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
+    const [ciro] = await db.select({ v: sql<number>`coalesce(sum(${s.fisler.brutTutar}),0)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI'), sql`${s.fisler.tip} in ${SALE_TIPS}`));
     const [tahsilat] = await db.select({ v: sql<number>`coalesce(sum(${s.kasaHareketler.giris}),0)` }).from(s.kasaHareketler).where(eq(s.kasaHareketler.tenantId, tid));
     const [kasa] = await db.select({ v: sql<number>`coalesce(sum(${s.kasalar.bakiye}),0)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));
     const [veresiye] = await db.select({ v: sql<number>`coalesce(sum(case when ${s.cariHesaplar.bakiye} > 0 and ${s.cariHesaplar.tip}='ALICI' then ${s.cariHesaplar.bakiye} else 0 end),0)` }).from(s.cariHesaplar).where(eq(s.cariHesaplar.tenantId, tid));
@@ -79,7 +85,7 @@ export async function registerRapor(app: FastifyInstance) {
     const db = getDb();
     return db.select({
       tarih: s.fisler.tarih, adet: sql<number>`cast(count(*) as integer)`, brut: sql<number>`coalesce(sum(${s.fisler.brutTutar}),0)`,
-    }).from(s.fisler).where(and(eq(s.fisler.tenantId, req.ctx.tenantId), eq(s.fisler.durum, 'ISLENDI'))).groupBy(s.fisler.tarih);
+    }).from(s.fisler).where(and(eq(s.fisler.tenantId, req.ctx.tenantId), eq(s.fisler.durum, 'ISLENDI'), sql`${s.fisler.tip} in ${SALE_TIPS}`)).groupBy(s.fisler.tarih);
   });
 
   // Generic CSV export for any of the above report/list datasets.

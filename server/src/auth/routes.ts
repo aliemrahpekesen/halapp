@@ -10,6 +10,9 @@ import { badRequest, unauthorized, tooMany } from '../core/errors.js';
 
 const MAX_FAILED_LOGINS = 8;
 const LOGIN_WINDOW = "15 minutes";
+// Fixed hash used to equalize response time when a tenant/user does not exist
+// (prevents username-enumeration via timing).
+const DUMMY_HASH = bcrypt.hashSync('halboxpro-timing-equalizer', 10);
 import type { Role } from '../core/types.js';
 import { getEmailProvider } from '../providers/email.js';
 
@@ -67,10 +70,10 @@ export async function authRoutes(app: FastifyInstance) {
     };
 
     const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, p.data.tenantSlug));
-    if (!tenant) return fail();
+    if (!tenant) { bcrypt.compareSync(p.data.password, DUMMY_HASH); return fail(); }
     const [user] = await db.select().from(users)
       .where(and(eq(users.tenantId, tenant.id), eq(users.email, p.data.email.toLowerCase())));
-    if (!user || !user.active) return fail();
+    if (!user || !user.active) { bcrypt.compareSync(p.data.password, DUMMY_HASH); return fail(); }
     if (!bcrypt.compareSync(p.data.password, user.passwordHash)) return fail();
 
     // success — clear failed attempts
@@ -102,7 +105,7 @@ export async function authRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post('/api/auth/reset-password', async (req) => {
+  app.post('/api/auth/reset-password', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (req) => {
     const p = z.object({ token: z.string(), password: z.string().min(6) }).safeParse(req.body);
     if (!p.success) throw badRequest('Geçersiz istek');
     const db = getDb();
