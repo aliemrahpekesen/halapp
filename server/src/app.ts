@@ -1,7 +1,10 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import fastifyStatic from '@fastify/static';
 import { ZodError } from 'zod';
+import fs from 'node:fs';
+import path from 'node:path';
 import { AppError } from './core/errors.js';
 import type { Role } from './core/types.js';
 import { authRoutes } from './auth/routes.js';
@@ -43,6 +46,20 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(authRoutes);
   await registerModules(app);
+
+  // Serve the built SPA when present (single-service deploy). Guarded so tests
+  // and API-only runs are unaffected.
+  const staticDir = process.env.STATIC_DIR
+    ? path.resolve(process.env.STATIC_DIR)
+    : path.resolve(process.cwd(), 'client/dist');
+  if (fs.existsSync(path.join(staticDir, 'index.html'))) {
+    await app.register(fastifyStatic, { root: staticDir, wildcard: false });
+    // SPA fallback for any non-API, non-file route.
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/api/')) return reply.code(404).send({ error: 'Bulunamadı' });
+      return reply.sendFile('index.html');
+    });
+  }
 
   return app;
 }
