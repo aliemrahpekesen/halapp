@@ -41,30 +41,10 @@ export function ddlScript(): string {
 let _db: DB | null = null;
 let _initP: Promise<DB> | null = null;
 
-async function build(): Promise<DB> {
-  const url = process.env.DATABASE_URL;
-  let db: DB;
-  if (url) {
-    const postgres = (await import('postgres')).default;
-    const { drizzle } = await import('drizzle-orm/postgres-js');
-    // Supabase/Neon poolers: disable prepared statements for transaction pooling.
-    // SSL is always on; set DB_SSL=verify to require full certificate verification
-    // (needs the provider CA available to Node) for hardened production.
-    const ssl = process.env.DB_SSL === 'verify' ? ('verify-full' as const) : ('require' as const);
-    const client = postgres(url, { prepare: false, max: 3, ssl });
-    db = drizzle(client, { schema });
-  } else {
-    const { PGlite } = await import('@electric-sql/pglite');
-    const { drizzle } = await import('drizzle-orm/pglite');
-    const client = new PGlite(); // in-memory
-    db = drizzle(client, { schema });
-  }
-  // Apply schema (idempotent) — safe on Postgres and PGlite alike.
-  for (const stmt of allTables().flatMap(ddlFor)) {
-    await db.execute(sql.raw(stmt));
-  }
-  // Self-healing: add any columns introduced after a table was first created
-  // (CREATE TABLE IF NOT EXISTS won't add them). ADD COLUMN IF NOT EXISTS is idempotent.
+/** Full idempotent schema DDL: CREATE TABLE/INDEX IF NOT EXISTS + self-healing
+ *  ADD COLUMN IF NOT EXISTS for columns added after a table's first creation. */
+function fullDdl(): string {
+  const parts: string[] = allTables().flatMap(ddlFor);
   for (const table of allTables()) {
     const cfg = getTableConfig(table);
     for (const c of cfg.columns) {
@@ -76,10 +56,31 @@ async function build(): Promise<DB> {
         else if (typeof d === 'boolean' || typeof d === 'number') stmt += ` DEFAULT ${d}`;
         else if (typeof d === 'string') stmt += ` DEFAULT '${d}'`;
       }
-      await db.execute(sql.raw(stmt));
+      parts.push(stmt + ';');
     }
   }
-  return db;
+  return parts.join('\n');
+}
+
+async function build(): Promise<DB> {
+  const url = process.env.DATABASE_URL;
+  const ddl = fullDdl();
+  if (url) {
+    const postgres = (await import('postgres')).default;
+    const { drizzle } = await import('drizzle-orm/postgres-js');
+    // Supabase/Neon poolers: disable prepared statements for transaction pooling.
+    // SSL is always on; set DB_SSL=verify for full cert verification (needs provider CA).
+    const ssl = process.env.DB_SSL === 'verify' ? ('verify-full' as const) : ('require' as const);
+    const client = postgres(url, { prepare: false, max: 3, ssl });
+    // One round-trip for the whole idempotent schema (simple protocol, multi-statement).
+    await client.unsafe(ddl);
+    return drizzle(client, { schema });
+  }
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { drizzle } = await import('drizzle-orm/pglite');
+  const client = new PGlite(); // in-memory
+  await client.exec(ddl); // multi-statement in one call
+  return drizzle(client, { schema });
 }
 
 /** Initialize the singleton DB (driver + schema). Idempotent. */
