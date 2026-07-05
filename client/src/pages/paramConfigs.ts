@@ -30,6 +30,11 @@ export const paramConfigs: CrudConfig[] = [
     ],
   },
   {
+    path: 'ambalaj-turleri', title: 'Ambalaj Türleri', endpoint: '/ambalaj/turleri',
+    columns: [{ key: 'kod', title: 'Kod' }, { key: 'ad', title: 'Ad' }, { key: 'depozito', title: 'Depozito (₺)' }],
+    fields: [{ name: 'kod', label: 'Kod', required: true }, { name: 'ad', label: 'Ad', required: true }, { name: 'depozito', label: 'Depozito (₺)', type: 'number' }],
+  },
+  {
     path: 'kasalar', title: 'Kasalar', endpoint: '/params/kasalar',
     columns: [{ key: 'kod', title: 'Kod' }, { key: 'ad', title: 'Ad' }, { key: 'paraBirimi', title: 'Para Birimi' }, { key: 'bakiye', title: 'Bakiye' }],
     fields: [{ name: 'kod', label: 'Kod', required: true }, { name: 'ad', label: 'Ad', required: true }, { name: 'paraBirimi', label: 'Para Birimi' }],

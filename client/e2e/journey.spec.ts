@@ -89,6 +89,7 @@ test.describe('HalBoxPro end-to-end', () => {
     await page.getByLabel('E-posta').fill('admin@demo.test');
     await page.getByLabel('Şifre').fill('secret1');
     await page.getByTestId('login-btn').click();
+    await expect(page.getByText('Genel Bakış')).toBeVisible(); // wait for login to complete
     await page.goto('/mobil');
     await expect(page.getByText('HalBoxPro Mobil')).toBeVisible();
     await expect(page.getByTestId('mobil-tahsil')).toBeVisible();

@@ -1,17 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
-import trTR from 'antd/locale/tr_TR';
+import { App as AntApp } from 'antd';
+import { ThemeProvider } from './theme';
 import App from './App';
 import 'antd/dist/reset.css';
+import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider locale={trTR} theme={{ token: { colorPrimary: '#1677ff' } }}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </ConfigProvider>
+    <ThemeProvider>
+      <AntApp>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AntApp>
+    </ThemeProvider>
   </React.StrictMode>,
 );

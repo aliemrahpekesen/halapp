@@ -16,7 +16,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'DB_FILE=./data/e2e.sqlite PORT=3001 npm run start:e2e',
+      command: 'NODE_ENV=test PORT=3001 npm run start:e2e',
       cwd: '../server',
       port: 3001,
       reuseExistingServer: false,

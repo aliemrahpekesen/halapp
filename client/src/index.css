@@ -1,0 +1,20 @@
+:root { color-scheme: light dark; }
+* { scrollbar-width: thin; }
+body { margin: 0; font-feature-settings: 'tnum'; }
+
+/* Smooth surface transitions on theme switch */
+.ant-layout, .ant-layout-header, .ant-layout-sider, .ant-card { transition: background-color .2s ease, border-color .2s ease; }
+
+/* Tabular numerals for money/quantity columns */
+.ant-table, .ant-statistic-content, .num { font-variant-numeric: tabular-nums; }
+
+/* Subtle card lift */
+.hbx-card { border-radius: 12px; }
+.hbx-kpi .ant-statistic-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+
+/* Login split panel */
+.hbx-login-hero {
+  background: linear-gradient(150deg, #0891b2 0%, #06b6d4 45%, #0e7490 100%);
+  color: #fff;
+}
+@media (max-width: 768px) { .hbx-login-hero { display: none !important; } }
