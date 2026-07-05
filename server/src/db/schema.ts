@@ -159,6 +159,19 @@ export const subeler = pgTable('subeler', {
   id: id(), tenantId: tenant(), kod: text('kod').notNull(), ad: text('ad').notNull(), createdAt: ts(),
 }, (t) => ({ byTenant: index('su_tenant').on(t.tenantId) }));
 
+// Boş kasa / ambalaj (crate deposit) tracking
+export const ambalajTurleri = pgTable('ambalaj_turleri', {
+  id: id(), tenantId: tenant(), kod: text('kod').notNull(), ad: text('ad').notNull(),
+  depozito: doublePrecision('depozito').notNull().default(0), createdAt: ts(),
+}, (t) => ({ byTenant: index('amt_tenant').on(t.tenantId) }));
+
+export const ambalajHareketler = pgTable('ambalaj_hareketler', {
+  id: id(), tenantId: tenant(), cariId: text('cari_id').notNull(), ambalajTuruId: text('ambalaj_turu_id').notNull(),
+  tarih: text('tarih').notNull(), verilen: doublePrecision('verilen').notNull().default(0),
+  iade: doublePrecision('iade').notNull().default(0), aciklama: text('aciklama'),
+  belgeTip: text('belge_tip'), belgeId: text('belge_id'), createdAt: ts(),
+}, (t) => ({ byCari: index('amh_cari').on(t.tenantId, t.cariId) }));
+
 // ---------- Transactions ----------
 
 export const cariHareketler = pgTable('cari_hareketler', {

@@ -9,6 +9,7 @@ import { registerOdeme } from './odeme.js';
 import { registerRapor } from './rapor.js';
 import { registerYonetim } from './yonetim.js';
 import { registerBildirim } from './bildirim.js';
+import { registerAmbalaj } from './ambalaj.js';
 
 export async function registerModules(app: FastifyInstance) {
   await registerParams(app);
@@ -21,4 +22,5 @@ export async function registerModules(app: FastifyInstance) {
   await registerRapor(app);
   await registerYonetim(app);
   await registerBildirim(app);
+  await registerAmbalaj(app);
 }
