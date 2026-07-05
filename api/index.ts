@@ -1,15 +1,15 @@
-// Vercel serverless entry — wraps the Fastify app (built to server/dist).
-// Serves the API and the built SPA. Uses PGlite (ephemeral, seeded on cold
-// start) unless DATABASE_URL is set, in which case it uses that Postgres.
+// Vercel serverless entry — wraps the Fastify app (built to server/dist, ESM).
+// Uses dynamic import() so this works whether Vercel compiles the entry to
+// CommonJS or ESM. Serves the API and the built SPA. Uses PGlite (ephemeral,
+// seeded on cold start) unless DATABASE_URL is set (then that Postgres).
 import path from 'node:path';
-import { buildApp } from '../server/dist/app.js';
-import { seed } from '../server/dist/db/seed.js';
 
 let ready: Promise<any> | null = null;
 
 async function init() {
-  // Locate the bundled SPA (included via vercel.json `includeFiles`).
   process.env.STATIC_DIR = process.env.STATIC_DIR || path.join(process.cwd(), 'client/dist');
+  const { buildApp } = await import('../server/dist/app.js');
+  const { seed } = await import('../server/dist/db/seed.js');
   const app = await buildApp();
   try {
     await seed(); // idempotent: no-op when demo tenants already exist

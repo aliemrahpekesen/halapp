@@ -20,3 +20,4 @@ client/test-results/
 client/playwright-report/
 client/dev-dist/
 .DS_Store
+.vercel
