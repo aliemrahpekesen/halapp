@@ -13,6 +13,10 @@ coverage/
 playwright-report/
 test-results/
 client/dist/
+client/data/
 server/dist/
 server/data/
+client/test-results/
+client/playwright-report/
+client/dev-dist/
 .DS_Store

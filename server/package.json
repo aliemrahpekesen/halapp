@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
+    "start:e2e": "tsx src/db/e2e-boot.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"

@@ -71,4 +71,8 @@ export async function seed() {
   console.log('Seed complete.');
 }
 
-seed().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+import { fileURLToPath } from 'node:url';
+// Auto-run only when invoked directly (not when imported by the e2e bootstrap).
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  seed().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+}
