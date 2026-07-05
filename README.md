@@ -1,5 +1,8 @@
 # HalBoxPro — Balık Hali Yönetim Sistemi (clone)
 
+**🌐 Canlı demo:** https://halapp.vercel.app — giriş: işletme `demo`, e-posta `admin@demo.test`, şifre `secret1`.
+> Faz-1 demo dağıtımı gömülü PGlite ile çalışır; veriler serverless instance yeniden başladığında sıfırlanabilir (demo verisi her açılışta yüklenir). Kalıcı veritabanı için Vercel'e `DATABASE_URL` (Postgres) env değişkeni eklemek yeterlidir — kod otomatik algılar.
+
 Multi-tenant fish-market (balık hali) management system. TypeScript monorepo:
 
 - **server/** — Fastify + Drizzle ORM + better-sqlite3 + Zod. Multi-tenant, JWT auth, page-level RBAC, audit log.
