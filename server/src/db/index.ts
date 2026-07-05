@@ -47,8 +47,9 @@ async function build(): Promise<DB> {
   if (url) {
     const postgres = (await import('postgres')).default;
     const { drizzle } = await import('drizzle-orm/postgres-js');
-    // Supabase/Neon poolers: disable prepared statements for transaction pooling.
-    const client = postgres(url, { prepare: false, max: 3 });
+    // Supabase/Neon poolers: disable prepared statements for transaction pooling;
+    // require SSL (managed Postgres) without strict cert verification.
+    const client = postgres(url, { prepare: false, max: 3, ssl: 'require' });
     db = drizzle(client, { schema });
   } else {
     const { PGlite } = await import('@electric-sql/pglite');
