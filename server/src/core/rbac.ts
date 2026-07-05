@@ -56,3 +56,17 @@ export function can(role: Role, page: string, action: Action): boolean {
 export function assertCan(role: Role, page: string, action: Action): void {
   if (!can(role, page, action)) throw forbidden();
 }
+
+export const PAGES = ['params', 'cari', 'satis', 'finans', 'stok', 'ebelge', 'odeme', 'rapor', 'yonetim', 'tenant', 'mobil'];
+
+/** Effective role→page→actions matrix (for the yönetim UI). */
+export function describeMatrix(): Record<string, Record<string, Action[]>> {
+  const out: Record<string, Record<string, Action[]>> = {};
+  for (const role of Object.keys(MATRIX) as Role[]) {
+    out[role] = {};
+    for (const page of PAGES) {
+      out[role][page] = (['read', 'write', 'delete'] as Action[]).filter((a) => can(role, page, a));
+    }
+  }
+  return out;
+}
