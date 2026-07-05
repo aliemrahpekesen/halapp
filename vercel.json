@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm install && npm --workspace server run build && npm --workspace client run build",
+  "buildCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --include=dev --no-audit --no-fund && npm --workspace server run build && npm --workspace client run build",
   "outputDirectory": "client/dist",
   "framework": null,
   "functions": {
