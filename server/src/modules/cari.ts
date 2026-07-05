@@ -7,6 +7,7 @@ import * as s from '../db/schema.js';
 import { assertCan } from '../core/rbac.js';
 import { writeAudit } from '../core/audit.js';
 import { badRequest, notFound } from '../core/errors.js';
+import { pageParams } from '../core/pagination.js';
 import { round2 } from '../lib/money.js';
 import { postCari } from '../lib/ledger.js';
 
@@ -36,7 +37,8 @@ export async function registerCari(app: FastifyInstance) {
     const q = req.query as { cariId?: string };
     const conds = [eq(s.cariHareketler.tenantId, req.ctx.tenantId)];
     if (q.cariId) conds.push(eq(s.cariHareketler.cariId, q.cariId));
-    return db.select().from(s.cariHareketler).where(and(...conds)).orderBy(asc(s.cariHareketler.tarih));
+    const { limit, offset } = pageParams(q, 500);
+    return db.select().from(s.cariHareketler).where(and(...conds)).orderBy(asc(s.cariHareketler.tarih)).limit(limit).offset(offset);
   });
 
   // Mahsup fişi: offset entry between two accounts.

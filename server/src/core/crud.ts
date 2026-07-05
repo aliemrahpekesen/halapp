@@ -7,6 +7,7 @@ import { getDb } from '../db/index.js';
 import { assertCan } from './rbac.js';
 import { writeAudit } from './audit.js';
 import { notFound, badRequest } from './errors.js';
+import { pageParams } from './pagination.js';
 
 interface CrudOpts<T extends SQLiteTable> {
   table: T;
@@ -26,7 +27,9 @@ export function registerCrud<T extends SQLiteTable>(app: FastifyInstance, opts: 
   app.get(basePath, async (req) => {
     assertCan(req.ctx.role, page, 'read');
     const db = getDb();
-    return db.select().from(table).where(eq(anyTable.tenantId, req.ctx.tenantId)).orderBy(desc(anyTable.createdAt));
+    const { limit, offset } = pageParams(req.query, 500);
+    return db.select().from(table).where(eq(anyTable.tenantId, req.ctx.tenantId))
+      .orderBy(desc(anyTable.createdAt)).limit(limit).offset(offset);
   });
 
   app.get(`${basePath}/:id`, async (req) => {

@@ -7,6 +7,7 @@ import * as s from '../db/schema.js';
 import { assertCan } from '../core/rbac.js';
 import { writeAudit } from '../core/audit.js';
 import { badRequest, notFound } from '../core/errors.js';
+import { pageParams } from '../core/pagination.js';
 import { round2, sum } from '../lib/money.js';
 import { postCari, postKasa, postStok, reverseDocument } from '../lib/ledger.js';
 
@@ -138,7 +139,8 @@ export async function registerSatis(app: FastifyInstance) {
     if (q.tip) conds.push(eq(s.fisler.tip, q.tip));
     if (q.baslangic) conds.push(sql`${s.fisler.tarih} >= ${q.baslangic}`);
     if (q.bitis) conds.push(sql`${s.fisler.tarih} <= ${q.bitis}`);
-    return db.select().from(s.fisler).where(and(...conds)).orderBy(desc(s.fisler.tarih));
+    const { limit, offset } = pageParams(q, 500);
+    return db.select().from(s.fisler).where(and(...conds)).orderBy(desc(s.fisler.tarih)).limit(limit).offset(offset);
   });
 
   app.get('/api/satis/fisler/:id', async (req) => {
