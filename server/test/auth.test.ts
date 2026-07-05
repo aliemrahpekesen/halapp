@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getTestApp, newTenant, auth } from './helpers.js';
+import { getEmailProvider, MockEmailProvider } from '../src/providers/email.js';
 
 describe('Foundation: health & auth', () => {
   it('health check works', async () => {
@@ -38,7 +39,12 @@ describe('Foundation: health & auth', () => {
       method: 'POST', url: '/api/auth/forgot-password',
       payload: { tenantSlug: t.slug, email: `admin@${t.slug}.test` },
     });
-    const { resetToken } = forgot.json();
+    // Token must NOT be in the response body — it is delivered by email.
+    expect(forgot.json().resetToken).toBeUndefined();
+    const provider = getEmailProvider() as MockEmailProvider;
+    const msg = provider.lastTo(`admin@${t.slug}.test`);
+    expect(msg).toBeTruthy();
+    const resetToken = (msg!.meta as any).token as string;
     expect(resetToken).toBeTruthy();
     const reset = await app.inject({
       method: 'POST', url: '/api/auth/reset-password',

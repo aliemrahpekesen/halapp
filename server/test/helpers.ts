@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 
 // Tests run against an in-memory PGlite database (no DATABASE_URL).
 delete process.env.DATABASE_URL;
+process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret';
 
 let appPromise: Promise<FastifyInstance> | null = null;

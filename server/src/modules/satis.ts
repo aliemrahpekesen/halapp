@@ -83,6 +83,11 @@ export async function registerSatis(app: FastifyInstance) {
     const totals = await computeTotals(db, tenantId, data.tip, data.satirlar);
     const no = data.no || `SF-${nanoid(8).toUpperCase()}`;
 
+    // Invariant: müstahsil net payment cannot be negative (deductions exceed gross).
+    if (data.tip === 'SATIS' && totals.net < 0) {
+      throw badRequest(`Kesintiler brüt tutarı aşıyor; müstahsil neti negatif (${totals.net}). Rüsum/komisyon oranlarını kontrol edin.`);
+    }
+
     if (data.odemeTipi === 'VERESIYE' && !data.riskOnay) {
       const [alici] = await db.select().from(s.cariHesaplar).where(and(eq(s.cariHesaplar.tenantId, tenantId), eq(s.cariHesaplar.id, data.aliciCariId)));
       if (alici && alici.riskLimiti > 0 && alici.bakiye + totals.brut > alici.riskLimiti) {

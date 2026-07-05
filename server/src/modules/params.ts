@@ -16,7 +16,8 @@ export async function registerParams(app: FastifyInstance) {
     basePath: '/api/params/balik-cinsleri',
     createSchema: kodAd.extend({
       grupId: z.string().optional(),
-      rusumOrani: z.number().min(0).max(1).optional(),
+      // Hal rüsumu genelde ≤ %5; makul üst sınır ile hatalı girişi engelle.
+      rusumOrani: z.number().min(0).max(0.05, 'Rüsum oranı en fazla %5 olabilir').optional(),
       birim: z.string().optional(),
     }),
   });
