@@ -44,6 +44,23 @@ To auto-install deps in fresh web sessions, add to `.claude/settings.json`:
 { "hooks": { "SessionStart": [ { "matcher": "*", "hooks": [ { "type": "command", "command": "bash scripts/session-start.sh" } ] } ] } }
 ```
 
+## Modules (Phase 1 — complete)
+
+| Alan | Kapsam |
+|---|---|
+| Kimlik/Erişim | register/login/forgot/reset, JWT, rol bazlı yetki (SuperAdmin/Admin/Muhasebe/Tahsilatci/ReadOnly), audit log |
+| Parametreler | balık cins/grup, cari hesaplar, kasa, depo, banka, KDV/tevkifat, ölçü/para birimi, POS, işyeri/şube (17 varlık) |
+| Cari & Satış | HKS kesinti motoru (komisyon/rüsum/stopaj/tevkifat→net), satış/alış-satış/mahsup fişi, ekstre, günlük gelen balık, risk limiti |
+| Finans | tahsil/tediye, kasa işlem/devir, masraf, çek portföy yaşam döngüsü |
+| Stok | bakiye, hareket/transfer/sayım fişi, ekstre |
+| e-Belge | mock Uyumsoft: e-fatura/e-müstahsil/e-irsaliye, gelen belgeler, dashboard, ayarlar |
+| Ödeme | mock gateway: kart tahsilat (3DS akışı), iade |
+| Raporlar | komisyon, mizan, ortalama maliyet, mali analiz, günlük analiz, CSV export |
+| Yönetim | kullanıcı & rol, yetki matrisi, audit viewer, bildirim, destek, tenant admin, dashboard |
+| Mobil/PWA | hızlı tahsilat + bakiyeler, kurulabilir PWA |
+
+**Test durumu:** 66 backend (Vitest) + 5 e2e (Playwright) yeşil.
+
 ## Project tracking
 
-Epics, features, user stories and phases are tracked as GitHub issues (labels: `epic`, `story`, `phase-1`, `phase-2`, `epic:*`, `bug`).
+Epics, features, user stories and phases are tracked as GitHub issues (labels: `epic`, `story`, `phase-1`, `phase-2`, `epic:*`, `bug`). Phase-1 tamamlandı; açık kalan issue'lar yalnızca tasarımca ertelenen Phase-2 gerçek entegrasyonlarıdır (#11, #44–#46).
