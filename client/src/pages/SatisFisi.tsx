@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Form, Select, DatePicker, Button, Table, InputNumber, Space, Typography, message, Tag, Divider } from 'antd';
+import { Card, Form, Select, DatePicker, Button, Table, InputNumber, Space, Typography, message, Tag, Divider, Modal } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { api, apiError } from '../api';
@@ -25,23 +25,35 @@ export default function SatisFisi() {
 
   const brut = satirlar.reduce((a, s) => a + (Number(s.miktar) || 0) * (Number(s.birimFiyat) || 0), 0);
 
+  const doPost = async (v: any, validSatirlar: any[], riskOnay?: boolean) => {
+    await api.post('/satis/fisler', {
+      tip: v.tip, tarih: dayjs(v.tarih).format('YYYY-MM-DD'),
+      aliciCariId: v.aliciCariId, mustahsilCariId: v.mustahsilCariId,
+      depoId: v.depoId, kasaId: v.kasaId, odemeTipi: v.odemeTipi, kunyeNo: v.kunyeNo, riskOnay,
+      satirlar: validSatirlar.map((s) => ({ balikCinsId: s.balikCinsId, miktar: Number(s.miktar), birimFiyat: Number(s.birimFiyat), kapAdet: Number(s.kapAdet) || 0 })),
+    });
+    message.success('Satış fişi işlendi');
+    setSatirlar([{ balikCinsId: undefined, miktar: undefined, birimFiyat: undefined, kapAdet: undefined }]);
+    form.resetFields(['aliciCariId', 'mustahsilCariId', 'kunyeNo']);
+    loadRefs();
+  };
+
   const submit = async (v: any) => {
     const validSatirlar = satirlar.filter((s) => s.balikCinsId && s.miktar && s.birimFiyat);
     if (!validSatirlar.length) return message.error('En az bir geçerli satır girin');
     setLoading(true);
     try {
-      await api.post('/satis/fisler', {
-        tip: v.tip, tarih: dayjs(v.tarih).format('YYYY-MM-DD'),
-        aliciCariId: v.aliciCariId, mustahsilCariId: v.mustahsilCariId,
-        depoId: v.depoId, kasaId: v.kasaId, odemeTipi: v.odemeTipi, kunyeNo: v.kunyeNo,
-        satirlar: validSatirlar.map((s) => ({ balikCinsId: s.balikCinsId, miktar: Number(s.miktar), birimFiyat: Number(s.birimFiyat), kapAdet: Number(s.kapAdet) || 0 })),
-      });
-      message.success('Satış fişi işlendi');
-      setSatirlar([{ balikCinsId: undefined, miktar: undefined, birimFiyat: undefined, kapAdet: undefined }]);
-      form.resetFields(['aliciCariId', 'mustahsilCariId', 'kunyeNo']);
-      loadRefs();
-    } catch (e) { message.error(apiError(e)); }
-    finally { setLoading(false); }
+      await doPost(v, validSatirlar);
+    } catch (e) {
+      const msg = apiError(e);
+      if (msg.includes('Risk limiti')) {
+        Modal.confirm({
+          title: 'Risk limiti aşılıyor', content: msg,
+          okText: 'Onayla ve İşle', cancelText: 'İptal',
+          onOk: async () => { try { await doPost(v, validSatirlar, true); } catch (er) { message.error(apiError(er)); } },
+        });
+      } else { message.error(msg); }
+    } finally { setLoading(false); }
   };
 
   const cinsOpt = cinsler.map((c) => ({ value: c.id, label: `${c.ad} (${c.kod})` }));

@@ -27,6 +27,7 @@ const createSchema = z.object({
   depoId: z.string().min(1, 'Depo zorunlu'),
   kasaId: z.string().optional(),
   odemeTipi: z.enum(['PESIN', 'VERESIYE', 'KART']).default('VERESIYE'),
+  riskOnay: z.boolean().optional(),
   satirlar: z.array(satirSchema).min(1, 'En az bir satır gerekli'),
 });
 
@@ -85,6 +86,15 @@ export async function registerSatis(app: FastifyInstance) {
     const totals = computeTotals(db, tenantId, data.tip, data.satirlar);
     const no = data.no || `SF-${Date.now().toString(36).toUpperCase()}`;
 
+    // Risk limit guard: veresiye sales must not push the buyer over their limit
+    // unless explicitly overridden (the override is recorded in the audit log).
+    if (data.odemeTipi === 'VERESIYE' && !data.riskOnay) {
+      const [alici] = await db.select().from(s.cariHesaplar).where(and(eq(s.cariHesaplar.tenantId, tenantId), eq(s.cariHesaplar.id, data.aliciCariId)));
+      if (alici && alici.riskLimiti > 0 && alici.bakiye + totals.brut > alici.riskLimiti) {
+        throw badRequest(`Risk limiti aşılıyor (limit ${alici.riskLimiti}, mevcut ${alici.bakiye}, yeni ${totals.brut}). Onay için riskOnay=true gönderin.`);
+      }
+    }
+
     transaction(() => {
       db.insert(s.fisler).values({
         id: fisId, tenantId, tip: data.tip, no, tarih: data.tarih,
@@ -119,6 +129,9 @@ export async function registerSatis(app: FastifyInstance) {
 
     const fis = await loadFis(db, tenantId, fisId);
     await writeAudit(db, req.ctx, 'satis_fisi', fisId, 'post', null, fis);
+    if (data.odemeTipi === 'VERESIYE' && data.riskOnay) {
+      await writeAudit(db, req.ctx, 'satis_fisi', fisId, 'risk_override', null, { aliciCariId: data.aliciCariId, brut: totals.brut });
+    }
     reply.code(201);
     return fis;
   });
