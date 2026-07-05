@@ -64,6 +64,13 @@ export const notifications = pgTable('notifications', {
   createdAt: ts(),
 }, (t) => ({ byTenantUser: index('notif_tenant_user').on(t.tenantId, t.userId) }));
 
+// Distributed brute-force protection (shared across serverless instances).
+export const loginAttempts = pgTable('login_attempts', {
+  id: id(),
+  k: text('k').notNull(), // tenantSlug:email
+  createdAt: ts(),
+}, (t) => ({ byK: index('la_k').on(t.k) }));
+
 export const supportTickets = pgTable('support_tickets', {
   id: id(),
   tenantId: tenant(),

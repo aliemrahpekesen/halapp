@@ -3,9 +3,13 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { sql } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
-import { tenants, users } from '../db/schema.js';
-import { badRequest, unauthorized } from '../core/errors.js';
+import { tenants, users, loginAttempts } from '../db/schema.js';
+import { badRequest, unauthorized, tooMany } from '../core/errors.js';
+
+const MAX_FAILED_LOGINS = 8;
+const LOGIN_WINDOW = "15 minutes";
 import type { Role } from '../core/types.js';
 import { getEmailProvider } from '../providers/email.js';
 
@@ -50,12 +54,27 @@ export async function authRoutes(app: FastifyInstance) {
     const p = loginSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
     const db = getDb();
+    const key = `${p.data.tenantSlug}:${p.data.email.toLowerCase()}`;
+
+    // Distributed brute-force lockout (works across serverless instances).
+    const [{ c }] = await db.select({ c: sql<number>`cast(count(*) as integer)` }).from(loginAttempts)
+      .where(and(eq(loginAttempts.k, key), sql`${loginAttempts.createdAt} > now() - interval '${sql.raw(LOGIN_WINDOW)}'`));
+    if (c >= MAX_FAILED_LOGINS) throw tooMany('Çok fazla hatalı giriş denemesi — 15 dakika sonra tekrar deneyin');
+
+    const fail = async () => {
+      await db.insert(loginAttempts).values({ id: nanoid(), k: key });
+      throw unauthorized('Geçersiz işletme kodu, e-posta veya şifre');
+    };
+
     const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, p.data.tenantSlug));
-    if (!tenant) throw unauthorized('Geçersiz tenant, e-posta veya şifre');
+    if (!tenant) return fail();
     const [user] = await db.select().from(users)
       .where(and(eq(users.tenantId, tenant.id), eq(users.email, p.data.email.toLowerCase())));
-    if (!user || !user.active) throw unauthorized('Geçersiz tenant, e-posta veya şifre');
-    if (!bcrypt.compareSync(p.data.password, user.passwordHash)) throw unauthorized('Geçersiz tenant, e-posta veya şifre');
+    if (!user || !user.active) return fail();
+    if (!bcrypt.compareSync(p.data.password, user.passwordHash)) return fail();
+
+    // success — clear failed attempts
+    await db.delete(loginAttempts).where(eq(loginAttempts.k, key));
     const token = await reply.jwtSign({ sub: user.id, tenantId: user.tenantId, role: user.role as Role, email: user.email });
     return { token, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, tenantId: user.tenantId } };
   });

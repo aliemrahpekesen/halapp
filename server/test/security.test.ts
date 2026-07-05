@@ -45,6 +45,20 @@ describe('Wave-1 security', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('locks out after repeated failed logins (DB-backed, cross-instance)', async () => {
+    const t = await newTenant(app);
+    const bad = { tenantSlug: t.slug, email: `admin@${t.slug}.test`, password: 'wrong' };
+    for (let i = 0; i < 8; i++) {
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: bad });
+      expect(r.statusCode).toBe(401);
+    }
+    const locked = await app.inject({ method: 'POST', url: '/api/auth/login', payload: bad });
+    expect(locked.statusCode).toBe(429);
+    // even correct credentials are blocked while locked
+    const correct = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { ...bad, password: 'secret1' } });
+    expect(correct.statusCode).toBe(429);
+  });
+
   it('security headers present (helmet CSP + no x-powered-by)', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.headers['content-security-policy']).toBeTruthy();
