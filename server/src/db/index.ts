@@ -63,10 +63,21 @@ export function createDb(file: string): CreatedDb {
 
 // Singleton for the running server
 let _db: CreatedDb | null = null;
-export function getDb(): DB {
+function ensure(): CreatedDb {
   if (!_db) {
     const file = process.env.DB_FILE || path.resolve(process.cwd(), 'data/halboxpro.sqlite');
     _db = createDb(file);
   }
-  return _db.db;
+  return _db;
+}
+export function getDb(): DB {
+  return ensure().db;
+}
+export function getSqlite(): Database.Database {
+  return ensure().sqlite;
+}
+/** Run `fn` in a synchronous SQLite transaction (better-sqlite3). Use drizzle
+ *  sync execution (`.run()`/`.get()`/`.all()`) inside `fn`. Rolls back on throw. */
+export function transaction<T>(fn: () => T): T {
+  return ensure().sqlite.transaction(fn)();
 }
