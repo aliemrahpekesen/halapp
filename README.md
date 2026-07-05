@@ -56,6 +56,14 @@ To auto-install deps in fresh web sessions, add to `.claude/settings.json`:
 { "hooks": { "SessionStart": [ { "matcher": "*", "hooks": [ { "type": "command", "command": "bash scripts/session-start.sh" } ] } ] } }
 ```
 
+## Güvenlik & Kalite (2 turluk adversarial denetimden geçti)
+
+- Kimlik: JWT (12s süre, prod'da zayıf secret ile boot engeli), bcrypt(10), **DB-tabanlı login kilidi** (instance'lar arası brute-force koruması), şifre sıfırlama yalnızca e-posta ile (yanıtta token yok), sabit-zamanlı giriş.
+- Erişim: sayfa bazlı RBAC (her uç noktada), sıkı çok-kiracılı izolasyon (okuma+yazma, testli), FK sahiplik doğrulaması, kiracı yönetimi yalnız SuperAdmin.
+- Ağ/başlık: helmet CSP + güvenlik başlıkları, HSTS, rate-limit (trustProxy=1), CORS kısıtlı, prod hata maskeleme.
+- Muhasebe bütünlüğü: atomik transaction'lar, iptal/iade tam ters kayıt (kart iadesi + karşılıksız çek dahil), komisyon/rüsum/stopaj/KDV mutabakatlı raporlar, tek kaynak kesinti motoru.
+- **82 backend + 5 e2e test yeşil**; grafikler dataviz doğrulanmış paletle; route bazlı code-splitting; dark mode.
+
 ## Modules (Phase 1 — complete)
 
 | Alan | Kapsam |
@@ -65,6 +73,7 @@ To auto-install deps in fresh web sessions, add to `.claude/settings.json`:
 | Cari & Satış | HKS kesinti motoru (komisyon/rüsum/stopaj/tevkifat→net), satış/alış-satış/mahsup fişi, ekstre, günlük gelen balık, risk limiti |
 | Finans | tahsil/tediye, kasa işlem/devir, masraf, çek portföy yaşam döngüsü |
 | Stok | bakiye, hareket/transfer/sayım fişi, ekstre |
+| Boş Kasa / Ambalaj | kap ver/iade, alıcı bazında açık kap bakiyesi, depozito (sektörün en büyük görünmez kayıp kalemi) |
 | e-Belge | mock Uyumsoft: e-fatura/e-müstahsil/e-irsaliye, gelen belgeler, dashboard, ayarlar |
 | Ödeme | mock gateway: kart tahsilat (3DS akışı), iade |
 | Raporlar | komisyon, mizan, ortalama maliyet, mali analiz, günlük analiz, CSV export |
