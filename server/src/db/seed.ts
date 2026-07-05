@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getDb, initDb } from './index.js';
 import * as s from './schema.js';
 
@@ -68,6 +68,21 @@ export async function seed() {
     await db.insert(s.cariHesaplar).values({ id: aliciId, tenantId, kod: 'A001', unvan: 'Deniz Manav', tip: 'ALICI', riskLimiti: 100000 });
 
     console.log(`Seeded tenant ${t.slug} (admin ${t.adminEmail} / secret1)`);
+  }
+
+  // Ensure a SuperAdmin user on the demo tenant (idempotent; runs even if demo
+  // was already seeded), so all five roles are demonstrable.
+  const [demoT] = await db.select().from(s.tenants).where(eq(s.tenants.slug, 'demo'));
+  if (demoT) {
+    const existing = await db.select().from(s.users)
+      .where(and(eq(s.users.tenantId, demoT.id), eq(s.users.email, 'superadmin@demo.test')));
+    if (!existing.length) {
+      await db.insert(s.users).values({
+        id: nanoid(), tenantId: demoT.id, email: 'superadmin@demo.test',
+        passwordHash: bcrypt.hashSync('secret1', 8), fullName: 'Sistem Yöneticisi', role: 'SuperAdmin',
+      });
+      console.log('Ensured SuperAdmin superadmin@demo.test / secret1');
+    }
   }
   console.log('Seed complete.');
 }
