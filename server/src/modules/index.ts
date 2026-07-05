@@ -4,6 +4,8 @@ import { registerSatis } from './satis.js';
 import { registerCari } from './cari.js';
 import { registerFinans } from './finans.js';
 import { registerStok } from './stok.js';
+import { registerEbelge } from './ebelge.js';
+import { registerOdeme } from './odeme.js';
 
 export async function registerModules(app: FastifyInstance) {
   await registerParams(app);
@@ -11,5 +13,7 @@ export async function registerModules(app: FastifyInstance) {
   await registerCari(app);
   await registerFinans(app);
   await registerStok(app);
-  // Further modules (ebelge, odeme, rapor, yonetim) added here.
+  await registerEbelge(app);
+  await registerOdeme(app);
+  // Further modules (rapor, yonetim) added here.
 }
