@@ -59,6 +59,10 @@ function fullDdl(): string {
       parts.push(stmt + ';');
     }
   }
+  // One-time idempotent backfill: rows created before komisyon_kdv_tutar existed
+  // have 0; reconstruct from the standard %20 commission VAT (only touches legacy
+  // rows — new sales always store it, so this matches nothing after first run).
+  parts.push(`UPDATE "fisler" SET "komisyon_kdv_tutar" = round(("komisyon_tutar" * 0.2)::numeric, 2) WHERE "tip" = 'SATIS' AND "komisyon_kdv_tutar" = 0 AND "komisyon_tutar" > 0;`);
   return parts.join('\n');
 }
 
