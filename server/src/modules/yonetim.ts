@@ -23,7 +23,7 @@ export async function registerYonetim(app: FastifyInstance) {
     assertCan(req.ctx.role, 'yonetim', 'read');
     const db = getDb();
     const rows = await db.select().from(s.users).where(eq(s.users.tenantId, req.ctx.tenantId)).orderBy(desc(s.users.createdAt));
-    return rows.map(({ passwordHash, resetToken, resetTokenExp, ...u }) => u);
+    return rows.map(({ passwordHash, resetToken, resetTokenExp, ...u }: any) => u);
   });
 
   app.post('/api/yonetim/kullanicilar', async (req, reply) => {
@@ -147,10 +147,10 @@ export async function registerYonetim(app: FastifyInstance) {
   // ---- Main dashboard KPIs ----
   app.get('/api/dashboard', async (req) => {
     const db = getDb(); const tid = req.ctx.tenantId;
-    const [satisAdet] = await db.select({ v: sql<number>`count(*)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
-    const [kasa] = await db.select({ v: sql<number>`round(coalesce(sum(${s.kasalar.bakiye}),0),2)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));
-    const [cariAdet] = await db.select({ v: sql<number>`count(*)` }).from(s.cariHesaplar).where(eq(s.cariHesaplar.tenantId, tid));
-    const [ebelgeAdet] = await db.select({ v: sql<number>`count(*)` }).from(s.ebelgeler).where(eq(s.ebelgeler.tenantId, tid));
+    const [satisAdet] = await db.select({ v: sql<number>`cast(count(*) as integer)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
+    const [kasa] = await db.select({ v: sql<number>`coalesce(sum(${s.kasalar.bakiye}),0)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));
+    const [cariAdet] = await db.select({ v: sql<number>`cast(count(*) as integer)` }).from(s.cariHesaplar).where(eq(s.cariHesaplar.tenantId, tid));
+    const [ebelgeAdet] = await db.select({ v: sql<number>`cast(count(*) as integer)` }).from(s.ebelgeler).where(eq(s.ebelgeler.tenantId, tid));
     return { satisAdet: satisAdet.v, kasaToplam: kasa.v, cariAdet: cariAdet.v, ebelgeAdet: ebelgeAdet.v };
   });
 }

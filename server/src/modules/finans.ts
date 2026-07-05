@@ -25,11 +25,12 @@ export async function registerFinans(app: FastifyInstance) {
     assertCan(req.ctx.role, 'finans', 'write');
     const p = tahsilSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
-    const db = getDb(); const tenantId = req.ctx.tenantId; const belgeId = nanoid();
-    transaction(() => {
-      postKasa(db, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tahsilat', giris: p.data.tutar, belgeTip: 'TAHSIL', belgeId });
-      postCari(db, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tahsilat', alacak: p.data.tutar, belgeTip: 'TAHSIL', belgeId });
+    const tenantId = req.ctx.tenantId; const belgeId = nanoid();
+    await transaction(async (tx) => {
+      await postKasa(tx, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tahsilat', giris: p.data.tutar, belgeTip: 'TAHSIL', belgeId });
+      await postCari(tx, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tahsilat', alacak: p.data.tutar, belgeTip: 'TAHSIL', belgeId });
     });
+    const db = getDb();
     await writeAudit(db, req.ctx, 'tahsil', belgeId, 'post', null, p.data);
     reply.code(201); return { id: belgeId, ...p.data };
   });
@@ -39,12 +40,12 @@ export async function registerFinans(app: FastifyInstance) {
     assertCan(req.ctx.role, 'finans', 'write');
     const p = tahsilSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
-    const db = getDb(); const tenantId = req.ctx.tenantId; const belgeId = nanoid();
-    transaction(() => {
-      postKasa(db, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tediye', cikis: p.data.tutar, belgeTip: 'TEDIYE', belgeId });
-      postCari(db, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tediye', borc: p.data.tutar, belgeTip: 'TEDIYE', belgeId });
+    const tenantId = req.ctx.tenantId; const belgeId = nanoid();
+    await transaction(async (tx) => {
+      await postKasa(tx, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tediye', cikis: p.data.tutar, belgeTip: 'TEDIYE', belgeId });
+      await postCari(tx, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Tediye', borc: p.data.tutar, belgeTip: 'TEDIYE', belgeId });
     });
-    await writeAudit(db, req.ctx, 'tediye', belgeId, 'post', null, p.data);
+    await writeAudit(getDb(), req.ctx, 'tediye', belgeId, 'post', null, p.data);
     reply.code(201); return { id: belgeId, ...p.data };
   });
 
@@ -54,9 +55,9 @@ export async function registerFinans(app: FastifyInstance) {
     assertCan(req.ctx.role, 'finans', 'write');
     const p = kasaIslemSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
-    const db = getDb(); const belgeId = nanoid();
-    transaction(() => {
-      postKasa(db, req.ctx.tenantId, {
+    const belgeId = nanoid();
+    await transaction(async (tx) => {
+      await postKasa(tx, req.ctx.tenantId, {
         kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Kasa işlem',
         giris: p.data.yon === 'GIRIS' ? p.data.tutar : 0, cikis: p.data.yon === 'CIKIS' ? p.data.tutar : 0,
         belgeTip: 'KASA', belgeId,
@@ -75,7 +76,7 @@ export async function registerFinans(app: FastifyInstance) {
       .where(and(eq(s.kasaHareketler.tenantId, tenantId), eq(s.kasaHareketler.kasaId, kasaId)))
       .orderBy(asc(s.kasaHareketler.tarih), asc(s.kasaHareketler.createdAt));
     let bakiye = 0;
-    const rows = hareketler.map((h) => { bakiye = round2(bakiye + h.giris - h.cikis); return { ...h, bakiye }; });
+    const rows = hareketler.map((h: any) => { bakiye = round2(bakiye + h.giris - h.cikis); return { ...h, bakiye }; });
     return { kasa, hareketler: rows, bakiye };
   });
 
@@ -96,12 +97,12 @@ export async function registerFinans(app: FastifyInstance) {
     assertCan(req.ctx.role, 'finans', 'write');
     const p = masrafSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
-    const db = getDb(); const tenantId = req.ctx.tenantId; const id = nanoid();
-    transaction(() => {
-      db.insert(s.masraflar).values({ id, tenantId, tarih: p.data.tarih, masrafTuruId: p.data.masrafTuruId ?? null, kasaId: p.data.kasaId, aciklama: p.data.aciklama ?? null, tutar: round2(p.data.tutar) }).run();
-      postKasa(db, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Masraf', cikis: p.data.tutar, belgeTip: 'MASRAF', belgeId: id });
+    const tenantId = req.ctx.tenantId; const id = nanoid();
+    await transaction(async (tx) => {
+      await tx.insert(s.masraflar).values({ id, tenantId, tarih: p.data.tarih, masrafTuruId: p.data.masrafTuruId ?? null, kasaId: p.data.kasaId, aciklama: p.data.aciklama ?? null, tutar: round2(p.data.tutar) });
+      await postKasa(tx, tenantId, { kasaId: p.data.kasaId, tarih: p.data.tarih, aciklama: p.data.aciklama || 'Masraf', cikis: p.data.tutar, belgeTip: 'MASRAF', belgeId: id });
     });
-    await writeAudit(db, req.ctx, 'masraf', id, 'create', null, p.data);
+    await writeAudit(getDb(), req.ctx, 'masraf', id, 'create', null, p.data);
     reply.code(201); return { id, ...p.data };
   });
 
@@ -121,19 +122,20 @@ export async function registerFinans(app: FastifyInstance) {
     assertCan(req.ctx.role, 'finans', 'write');
     const p = cekSchema.safeParse(req.body);
     if (!p.success) throw badRequest(p.error.issues.map((i) => i.message).join('; '));
-    const db = getDb(); const tenantId = req.ctx.tenantId; const id = nanoid();
-    transaction(() => {
-      db.insert(s.cekler).values({
+    const tenantId = req.ctx.tenantId; const id = nanoid();
+    await transaction(async (tx) => {
+      await tx.insert(s.cekler).values({
         id, tenantId, yon: p.data.yon, cariId: p.data.cariId ?? null, bankaId: p.data.bankaId ?? null,
         cekNo: p.data.cekNo, tutar: round2(p.data.tutar), vadeTarihi: p.data.vadeTarihi ?? null, durum: 'PORTFOYDE',
-      }).run();
+      });
       // A received cheque reduces the customer's receivable; an issued cheque reduces our payable.
       if (p.data.cariId) {
-        if (p.data.yon === 'GIRIS') postCari(db, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: `Çek ${p.data.cekNo}`, alacak: p.data.tutar, belgeTip: 'CEK', belgeId: id });
-        else postCari(db, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: `Çek ${p.data.cekNo}`, borc: p.data.tutar, belgeTip: 'CEK', belgeId: id });
+        if (p.data.yon === 'GIRIS') await postCari(tx, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: `Çek ${p.data.cekNo}`, alacak: p.data.tutar, belgeTip: 'CEK', belgeId: id });
+        else await postCari(tx, tenantId, { cariId: p.data.cariId, tarih: p.data.tarih, aciklama: `Çek ${p.data.cekNo}`, borc: p.data.tutar, belgeTip: 'CEK', belgeId: id });
       }
     });
     reply.code(201);
+    const db = getDb();
     const [row] = await db.select().from(s.cekler).where(and(eq(s.cekler.tenantId, tenantId), eq(s.cekler.id, id)));
     return row;
   });
@@ -167,7 +169,7 @@ export async function registerFinans(app: FastifyInstance) {
   app.get('/api/finans/cek-portfoy-durumu', async (req) => {
     assertCan(req.ctx.role, 'finans', 'read');
     const db = getDb();
-    return db.select({ durum: s.cekler.durum, yon: s.cekler.yon, adet: sql<number>`count(*)`, toplam: sql<number>`round(sum(${s.cekler.tutar}),2)` })
+    return db.select({ durum: s.cekler.durum, yon: s.cekler.yon, adet: sql<number>`cast(count(*) as integer)`, toplam: sql<number>`coalesce(sum(${s.cekler.tutar}),0)` })
       .from(s.cekler).where(eq(s.cekler.tenantId, req.ctx.tenantId)).groupBy(s.cekler.durum, s.cekler.yon);
   });
 }

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
-// Force a fresh in-memory DB before any app/db import resolves the singleton.
-process.env.DB_FILE = ':memory:';
+// Tests run against an in-memory PGlite database (no DATABASE_URL).
+delete process.env.DATABASE_URL;
 process.env.JWT_SECRET = 'test-secret';
 
 let appPromise: Promise<FastifyInstance> | null = null;

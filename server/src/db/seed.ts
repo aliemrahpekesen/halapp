@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { getDb } from './index.js';
+import { getDb, initDb } from './index.js';
 import * as s from './schema.js';
 
 interface SeedTenant {
@@ -17,6 +17,7 @@ const DEMO: SeedTenant[] = [
 
 /** Idempotent: seeds two demo tenants with users, master data and sample data. */
 export async function seed() {
+  await initDb();
   const db = getDb();
   for (const t of DEMO) {
     const existing = await db.select().from(s.tenants).where(eq(s.tenants.slug, t.slug));

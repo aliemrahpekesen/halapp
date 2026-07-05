@@ -23,7 +23,7 @@ export async function registerRapor(app: FastifyInstance) {
       no: s.fisler.no, tarih: s.fisler.tarih, brut: s.fisler.brutTutar, komisyon: s.fisler.komisyonTutar,
       rusum: s.fisler.rusumTutar, stopaj: s.fisler.stopajTutar, net: s.fisler.netTutar,
     }).from(s.fisler).where(and(eq(s.fisler.tenantId, req.ctx.tenantId), eq(s.fisler.durum, 'ISLENDI'), eq(s.fisler.tip, 'SATIS'), ...dateConds(s.fisler, q)));
-    const toplam = rows.reduce((a, r) => ({
+    const toplam = rows.reduce((a: any, r: any) => ({
       brut: a.brut + r.brut, komisyon: a.komisyon + r.komisyon, rusum: a.rusum + r.rusum, stopaj: a.stopaj + r.stopaj, net: a.net + r.net,
     }), { brut: 0, komisyon: 0, rusum: 0, stopaj: 0, net: 0 });
     return { satirlar: rows, toplam };
@@ -35,9 +35,9 @@ export async function registerRapor(app: FastifyInstance) {
     const db = getDb();
     return db.select({
       cariId: s.cariHareketler.cariId,
-      borc: sql<number>`round(sum(${s.cariHareketler.borc}),2)`,
-      alacak: sql<number>`round(sum(${s.cariHareketler.alacak}),2)`,
-      bakiye: sql<number>`round(sum(${s.cariHareketler.borc} - ${s.cariHareketler.alacak}),2)`,
+      borc: sql<number>`coalesce(sum(${s.cariHareketler.borc}),0)`,
+      alacak: sql<number>`coalesce(sum(${s.cariHareketler.alacak}),0)`,
+      bakiye: sql<number>`coalesce(sum(${s.cariHareketler.borc} - ${s.cariHareketler.alacak}),0)`,
     }).from(s.cariHareketler).where(eq(s.cariHareketler.tenantId, req.ctx.tenantId)).groupBy(s.cariHareketler.cariId);
   });
 
@@ -47,8 +47,8 @@ export async function registerRapor(app: FastifyInstance) {
     const db = getDb();
     return db.select({
       balikCinsId: s.stokHareketler.balikCinsId,
-      toplamGiris: sql<number>`round(sum(${s.stokHareketler.giris}),2)`,
-      ortalamaMaliyet: sql<number>`case when sum(${s.stokHareketler.giris})>0 then round(sum(${s.stokHareketler.giris} * ${s.stokHareketler.birimMaliyet})/sum(${s.stokHareketler.giris}),4) else 0 end`,
+      toplamGiris: sql<number>`coalesce(sum(${s.stokHareketler.giris}),0)`,
+      ortalamaMaliyet: sql<number>`case when sum(${s.stokHareketler.giris})>0 then sum(${s.stokHareketler.giris} * ${s.stokHareketler.birimMaliyet})/sum(${s.stokHareketler.giris}) else 0 end`,
     }).from(s.stokHareketler).where(and(eq(s.stokHareketler.tenantId, req.ctx.tenantId), sql`${s.stokHareketler.giris} > 0`)).groupBy(s.stokHareketler.balikCinsId);
   });
 
@@ -56,10 +56,10 @@ export async function registerRapor(app: FastifyInstance) {
   app.get('/api/rapor/mali-analiz', async (req) => {
     assertCan(req.ctx.role, 'rapor', 'read');
     const db = getDb(); const tid = req.ctx.tenantId;
-    const [ciro] = await db.select({ v: sql<number>`round(coalesce(sum(${s.fisler.brutTutar}),0),2)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
-    const [tahsilat] = await db.select({ v: sql<number>`round(coalesce(sum(${s.kasaHareketler.giris}),0),2)` }).from(s.kasaHareketler).where(eq(s.kasaHareketler.tenantId, tid));
-    const [kasa] = await db.select({ v: sql<number>`round(coalesce(sum(${s.kasalar.bakiye}),0),2)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));
-    const [veresiye] = await db.select({ v: sql<number>`round(coalesce(sum(case when ${s.cariHesaplar.bakiye} > 0 and ${s.cariHesaplar.tip}='ALICI' then ${s.cariHesaplar.bakiye} else 0 end),0),2)` }).from(s.cariHesaplar).where(eq(s.cariHesaplar.tenantId, tid));
+    const [ciro] = await db.select({ v: sql<number>`coalesce(sum(${s.fisler.brutTutar}),0)` }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI')));
+    const [tahsilat] = await db.select({ v: sql<number>`coalesce(sum(${s.kasaHareketler.giris}),0)` }).from(s.kasaHareketler).where(eq(s.kasaHareketler.tenantId, tid));
+    const [kasa] = await db.select({ v: sql<number>`coalesce(sum(${s.kasalar.bakiye}),0)` }).from(s.kasalar).where(eq(s.kasalar.tenantId, tid));
+    const [veresiye] = await db.select({ v: sql<number>`coalesce(sum(case when ${s.cariHesaplar.bakiye} > 0 and ${s.cariHesaplar.tip}='ALICI' then ${s.cariHesaplar.bakiye} else 0 end),0)` }).from(s.cariHesaplar).where(eq(s.cariHesaplar.tenantId, tid));
     return { ciro: ciro.v, tahsilat: tahsilat.v, kasaToplam: kasa.v, acikVeresiye: veresiye.v };
   });
 
@@ -69,7 +69,7 @@ export async function registerRapor(app: FastifyInstance) {
     const db = getDb();
     return db.select({
       cariId: s.cariHareketler.cariId,
-      tahsilat: sql<number>`round(coalesce(sum(case when ${s.cariHareketler.belgeTip} in ('TAHSIL','ODEME') then ${s.cariHareketler.alacak} else 0 end),0),2)`,
+      tahsilat: sql<number>`coalesce(sum(case when ${s.cariHareketler.belgeTip} in ('TAHSIL','ODEME') then ${s.cariHareketler.alacak} else 0 end),0)`,
     }).from(s.cariHareketler).where(eq(s.cariHareketler.tenantId, req.ctx.tenantId)).groupBy(s.cariHareketler.cariId);
   });
 
@@ -78,7 +78,7 @@ export async function registerRapor(app: FastifyInstance) {
     assertCan(req.ctx.role, 'rapor', 'read');
     const db = getDb();
     return db.select({
-      tarih: s.fisler.tarih, adet: sql<number>`count(*)`, brut: sql<number>`round(sum(${s.fisler.brutTutar}),2)`,
+      tarih: s.fisler.tarih, adet: sql<number>`cast(count(*) as integer)`, brut: sql<number>`coalesce(sum(${s.fisler.brutTutar}),0)`,
     }).from(s.fisler).where(and(eq(s.fisler.tenantId, req.ctx.tenantId), eq(s.fisler.durum, 'ISLENDI'))).groupBy(s.fisler.tarih);
   });
 
@@ -89,7 +89,7 @@ export async function registerRapor(app: FastifyInstance) {
     const db = getDb(); const tid = req.ctx.tenantId;
     let rows: Record<string, unknown>[] = [];
     if (q.rapor === 'mizan') {
-      rows = await db.select({ cariId: s.cariHareketler.cariId, borc: sql<number>`round(sum(${s.cariHareketler.borc}),2)`, alacak: sql<number>`round(sum(${s.cariHareketler.alacak}),2)` }).from(s.cariHareketler).where(eq(s.cariHareketler.tenantId, tid)).groupBy(s.cariHareketler.cariId);
+      rows = await db.select({ cariId: s.cariHareketler.cariId, borc: sql<number>`coalesce(sum(${s.cariHareketler.borc}),0)`, alacak: sql<number>`coalesce(sum(${s.cariHareketler.alacak}),0)` }).from(s.cariHareketler).where(eq(s.cariHareketler.tenantId, tid)).groupBy(s.cariHareketler.cariId);
     } else if (q.rapor === 'komisyon') {
       rows = await db.select({ no: s.fisler.no, tarih: s.fisler.tarih, brut: s.fisler.brutTutar, komisyon: s.fisler.komisyonTutar, net: s.fisler.netTutar }).from(s.fisler).where(and(eq(s.fisler.tenantId, tid), eq(s.fisler.durum, 'ISLENDI'), eq(s.fisler.tip, 'SATIS')));
     } else {

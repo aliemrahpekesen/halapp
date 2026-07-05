@@ -6,12 +6,14 @@ import { AppError } from './core/errors.js';
 import type { Role } from './core/types.js';
 import { authRoutes } from './auth/routes.js';
 import { registerModules } from './modules/index.js';
+import { initDb } from './db/index.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'halboxpro-dev-secret-change-in-prod';
 
 const PUBLIC_PREFIXES = ['/api/auth/register', '/api/auth/login', '/api/auth/forgot-password', '/api/auth/reset-password', '/health'];
 
 export async function buildApp(): Promise<FastifyInstance> {
+  await initDb();
   const app = Fastify({ logger: false });
 
   await app.register(cors, { origin: true });

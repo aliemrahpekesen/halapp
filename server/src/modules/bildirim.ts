@@ -19,7 +19,7 @@ export async function registerBildirim(app: FastifyInstance) {
 
   app.get('/api/bildirim/okunmamis-sayisi', async (req) => {
     const db = getDb();
-    const [row] = await db.select({ v: sql<number>`count(*)` }).from(s.notifications)
+    const [row] = await db.select({ v: sql<number>`cast(count(*) as integer)` }).from(s.notifications)
       .where(and(eq(s.notifications.tenantId, req.ctx.tenantId), eq(s.notifications.read, false)));
     return { adet: row.v };
   });

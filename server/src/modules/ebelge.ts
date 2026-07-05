@@ -35,7 +35,7 @@ export async function registerEbelge(app: FastifyInstance) {
       if (!fis) throw notFound('Fiş bulunamadı');
       tutar = fis.brutTutar;
       const satirlar = await db.select().from(s.fisSatirlari).where(and(eq(s.fisSatirlari.tenantId, tenantId), eq(s.fisSatirlari.fisId, fis.id)));
-      kalemler = satirlar.map((l) => ({ ad: l.balikCinsId, miktar: l.miktar, birimFiyat: l.birimFiyat, tutar: l.tutar }));
+      kalemler = satirlar.map((l: any) => ({ ad: l.balikCinsId, miktar: l.miktar, birimFiyat: l.birimFiyat, tutar: l.tutar }));
       if (fis.aliciCariId) {
         const [cari] = await db.select().from(s.cariHesaplar).where(and(eq(s.cariHesaplar.tenantId, tenantId), eq(s.cariHesaplar.id, fis.aliciCariId)));
         aliciUnvan = cari?.unvan;
@@ -74,7 +74,7 @@ export async function registerEbelge(app: FastifyInstance) {
   app.get('/api/ebelge/dashboard', async (req) => {
     assertCan(req.ctx.role, 'ebelge', 'read');
     const db = getDb();
-    return db.select({ tur: s.ebelgeler.tur, yon: s.ebelgeler.yon, durum: s.ebelgeler.durum, adet: sql<number>`count(*)`, toplam: sql<number>`round(coalesce(sum(${s.ebelgeler.tutar}),0),2)` })
+    return db.select({ tur: s.ebelgeler.tur, yon: s.ebelgeler.yon, durum: s.ebelgeler.durum, adet: sql<number>`cast(count(*) as integer)`, toplam: sql<number>`coalesce(sum(${s.ebelgeler.tutar}),0)` })
       .from(s.ebelgeler).where(eq(s.ebelgeler.tenantId, req.ctx.tenantId)).groupBy(s.ebelgeler.tur, s.ebelgeler.yon, s.ebelgeler.durum);
   });
 

@@ -23,7 +23,7 @@ export async function registerCari(app: FastifyInstance) {
       .where(and(eq(s.cariHareketler.tenantId, tenantId), eq(s.cariHareketler.cariId, cariId)))
       .orderBy(asc(s.cariHareketler.tarih), asc(s.cariHareketler.createdAt));
     let bakiye = 0;
-    const rows = hareketler.map((h) => {
+    const rows = hareketler.map((h: any) => {
       bakiye = round2(bakiye + h.borc - h.alacak);
       return { ...h, bakiye };
     });
@@ -56,14 +56,14 @@ export async function registerCari(app: FastifyInstance) {
     const db = getDb();
     const tenantId = req.ctx.tenantId;
     const fisId = nanoid();
-    const no = `MH-${Date.now().toString(36).toUpperCase()}`;
-    transaction(() => {
-      db.insert(s.fisler).values({
+    const no = `MH-${nanoid(8).toUpperCase()}`;
+    await transaction(async (tx) => {
+      await tx.insert(s.fisler).values({
         id: fisId, tenantId, tip: 'MAHSUP', no, tarih: p.data.tarih,
         brutTutar: round2(p.data.tutar), netTutar: round2(p.data.tutar), durum: 'ISLENDI',
-      }).run();
-      postCari(db, tenantId, { cariId: p.data.borcluCariId, tarih: p.data.tarih, aciklama: p.data.aciklama || `Mahsup ${no}`, borc: p.data.tutar, belgeTip: 'MAHSUP', belgeId: fisId });
-      postCari(db, tenantId, { cariId: p.data.alacakliCariId, tarih: p.data.tarih, aciklama: p.data.aciklama || `Mahsup ${no}`, alacak: p.data.tutar, belgeTip: 'MAHSUP', belgeId: fisId });
+      });
+      await postCari(tx, tenantId, { cariId: p.data.borcluCariId, tarih: p.data.tarih, aciklama: p.data.aciklama || `Mahsup ${no}`, borc: p.data.tutar, belgeTip: 'MAHSUP', belgeId: fisId });
+      await postCari(tx, tenantId, { cariId: p.data.alacakliCariId, tarih: p.data.tarih, aciklama: p.data.aciklama || `Mahsup ${no}`, alacak: p.data.tutar, belgeTip: 'MAHSUP', belgeId: fisId });
     });
     await writeAudit(db, req.ctx, 'mahsup_fisi', fisId, 'post', null, { no, ...p.data });
     reply.code(201);

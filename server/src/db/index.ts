@@ -1,26 +1,24 @@
-import Database from 'better-sqlite3';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { getTableConfig, type SQLiteTable } from 'drizzle-orm/sqlite-core';
-import { is } from 'drizzle-orm';
-import { SQLiteTable as SQLiteTableClass } from 'drizzle-orm/sqlite-core';
+import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core';
+import { is, sql } from 'drizzle-orm';
+import { PgTable as PgTableClass } from 'drizzle-orm/pg-core';
 import * as schema from './schema.js';
-import fs from 'node:fs';
-import path from 'node:path';
 
-export type DB = BetterSQLite3Database<typeof schema>;
+export type DB = any; // drizzle instance (pglite or postgres-js); unified async API
 
-/** Build CREATE TABLE / CREATE INDEX DDL directly from the Drizzle schema. */
-export function ddlFor(table: SQLiteTable): string[] {
+/** Build CREATE TABLE / CREATE INDEX DDL from the Drizzle pg schema. */
+export function ddlFor(table: PgTable): string[] {
   const cfg = getTableConfig(table);
   const cols = cfg.columns.map((c) => {
     let def = `"${c.name}" ${c.getSQLType()}`;
     if (c.primary) def += ' PRIMARY KEY';
     if (c.notNull) def += ' NOT NULL';
-    if (c.hasDefault && c.default !== undefined) {
-      const d = c.default;
-      def += ` DEFAULT ${typeof d === 'string' ? `'${d}'` : d}`;
-    }
     if (c.isUnique) def += ' UNIQUE';
+    if (c.hasDefault) {
+      const d = c.default as unknown;
+      if (c.name === 'created_at') def += ' DEFAULT now()';
+      else if (typeof d === 'boolean' || typeof d === 'number') def += ` DEFAULT ${d}`;
+      else if (typeof d === 'string') def += ` DEFAULT '${d}'`;
+    }
     return def;
   });
   const stmts = [`CREATE TABLE IF NOT EXISTS "${cfg.name}" (\n  ${cols.join(',\n  ')}\n);`];
@@ -32,52 +30,52 @@ export function ddlFor(table: SQLiteTable): string[] {
   return stmts;
 }
 
-export function allTables(): SQLiteTable[] {
-  return Object.values(schema).filter((v) => is(v, SQLiteTableClass)) as SQLiteTable[];
+export function allTables(): PgTable[] {
+  return Object.values(schema).filter((v) => is(v, PgTableClass)) as PgTable[];
 }
 
-export function migrate(sqlite: Database.Database): void {
-  sqlite.pragma('journal_mode = WAL');
-  sqlite.pragma('foreign_keys = ON');
-  for (const table of allTables()) {
-    for (const stmt of ddlFor(table)) sqlite.exec(stmt);
+export function ddlScript(): string {
+  return allTables().flatMap(ddlFor).join('\n');
+}
+
+let _db: DB | null = null;
+let _initP: Promise<DB> | null = null;
+
+async function build(): Promise<DB> {
+  const url = process.env.DATABASE_URL;
+  let db: DB;
+  if (url) {
+    const postgres = (await import('postgres')).default;
+    const { drizzle } = await import('drizzle-orm/postgres-js');
+    // Supabase/Neon poolers: disable prepared statements for transaction pooling.
+    const client = postgres(url, { prepare: false, max: 3 });
+    db = drizzle(client, { schema });
+  } else {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const { drizzle } = await import('drizzle-orm/pglite');
+    const client = new PGlite(); // in-memory
+    db = drizzle(client, { schema });
   }
-}
-
-export interface CreatedDb {
-  db: DB;
-  sqlite: Database.Database;
-}
-
-/** Create a DB. Pass ':memory:' for tests. */
-export function createDb(file: string): CreatedDb {
-  if (file !== ':memory:') {
-    const dir = path.dirname(file);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  // Apply schema (idempotent) — safe on Postgres and PGlite alike.
+  for (const stmt of allTables().flatMap(ddlFor)) {
+    await db.execute(sql.raw(stmt));
   }
-  const sqlite = new Database(file);
-  migrate(sqlite);
-  const db = drizzle(sqlite, { schema });
-  return { db, sqlite };
+  return db;
 }
 
-// Singleton for the running server
-let _db: CreatedDb | null = null;
-function ensure(): CreatedDb {
-  if (!_db) {
-    const file = process.env.DB_FILE || path.resolve(process.cwd(), 'data/halboxpro.sqlite');
-    _db = createDb(file);
-  }
+/** Initialize the singleton DB (driver + schema). Idempotent. */
+export async function initDb(): Promise<DB> {
+  if (_db) return _db;
+  if (!_initP) _initP = build().then((db) => { _db = db; return db; });
+  return _initP;
+}
+
+export function getDb(): DB {
+  if (!_db) throw new Error('DB not initialized — call initDb() first');
   return _db;
 }
-export function getDb(): DB {
-  return ensure().db;
-}
-export function getSqlite(): Database.Database {
-  return ensure().sqlite;
-}
-/** Run `fn` in a synchronous SQLite transaction (better-sqlite3). Use drizzle
- *  sync execution (`.run()`/`.get()`/`.all()`) inside `fn`. Rolls back on throw. */
-export function transaction<T>(fn: () => T): T {
-  return ensure().sqlite.transaction(fn)();
+
+/** Run `fn` in a transaction. `fn` receives a tx-scoped db and must be async. */
+export async function transaction<T>(fn: (tx: DB) => Promise<T>): Promise<T> {
+  return getDb().transaction(async (tx: DB) => fn(tx));
 }

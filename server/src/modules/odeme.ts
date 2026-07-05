@@ -48,11 +48,11 @@ export async function registerOdeme(app: FastifyInstance) {
       return { id: odeme.id, durum: 'BASARISIZ', message: result.message };
     }
 
-    transaction(() => {
-      db.update(s.odemeler).set({ durum: 'BASARILI' }).where(and(eq(s.odemeler.tenantId, tenantId), eq(s.odemeler.id, odeme.id))).run();
+    await transaction(async (tx) => {
+      await tx.update(s.odemeler).set({ durum: 'BASARILI' }).where(and(eq(s.odemeler.tenantId, tenantId), eq(s.odemeler.id, odeme.id)));
       // Card collection: cash into kasa + reduce customer receivable.
-      postKasa(db, tenantId, { kasaId: p.data.kasaId, tarih, aciklama: 'Kart tahsilat', giris: odeme.tutar, belgeTip: 'ODEME', belgeId: odeme.id });
-      if (odeme.cariId) postCari(db, tenantId, { cariId: odeme.cariId, tarih, aciklama: 'Kart tahsilat', alacak: odeme.tutar, belgeTip: 'ODEME', belgeId: odeme.id });
+      await postKasa(tx, tenantId, { kasaId: p.data.kasaId, tarih, aciklama: 'Kart tahsilat', giris: odeme.tutar, belgeTip: 'ODEME', belgeId: odeme.id });
+      if (odeme.cariId) await postCari(tx, tenantId, { cariId: odeme.cariId, tarih, aciklama: 'Kart tahsilat', alacak: odeme.tutar, belgeTip: 'ODEME', belgeId: odeme.id });
     });
     await writeAudit(db, req.ctx, 'odeme', odeme.id, 'success', null, { durum: 'BASARILI', tutar: odeme.tutar });
     return { id: odeme.id, durum: 'BASARILI', message: result.message };
