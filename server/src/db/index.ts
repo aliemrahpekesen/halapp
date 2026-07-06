@@ -73,8 +73,10 @@ async function build(): Promise<DB> {
     const postgres = (await import('postgres')).default;
     const { drizzle } = await import('drizzle-orm/postgres-js');
     // Supabase/Neon poolers: disable prepared statements for transaction pooling.
-    // SSL is always on; set DB_SSL=verify for full cert verification (needs provider CA).
-    const ssl = process.env.DB_SSL === 'verify' ? ('verify-full' as const) : ('require' as const);
+    // DB_SSL: 'verify' = full cert verification (needs provider CA),
+    // 'disable' = plaintext (local Docker Postgres), default 'require'.
+    const sslEnv = process.env.DB_SSL;
+    const ssl = sslEnv === 'verify' ? ('verify-full' as const) : sslEnv === 'disable' ? false : ('require' as const);
     const client = postgres(url, { prepare: false, max: 3, ssl });
     // One round-trip for the whole idempotent schema (simple protocol, multi-statement).
     await client.unsafe(ddl);
@@ -82,7 +84,12 @@ async function build(): Promise<DB> {
   }
   const { PGlite } = await import('@electric-sql/pglite');
   const { drizzle } = await import('drizzle-orm/pglite');
-  const client = new PGlite(); // in-memory
+  // Tests stay in-memory; local dev persists to disk so data survives restarts.
+  // PGLITE_DIR overrides the location ('' forces in-memory).
+  const isTest = process.env.NODE_ENV === 'test' || !!process.env.VITEST;
+  const dir = process.env.PGLITE_DIR ?? (isTest ? '' : 'data/pglite');
+  if (dir) (await import('node:fs')).mkdirSync(dir, { recursive: true }); // PGlite's own mkdir is not recursive
+  const client = dir ? new PGlite(dir) : new PGlite();
   await client.exec(ddl); // multi-statement in one call
   return drizzle(client, { schema });
 }

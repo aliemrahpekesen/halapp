@@ -10,27 +10,47 @@
 | `demo` | `tahsilat@demo.test` | `secret1` | Tahsilatçı |
 | `ege` | `admin@ege.test` | `secret1` | Admin (2. kiracı — izolasyon) |
 
-> Mimari çift sürücülüdür: `DATABASE_URL` verilince Postgres (Supabase/Neon), verilmezse gömülü PGlite (test/geliştirme). Prod'da `DATABASE_URL` ayarlı.
+> Mimari çift sürücülüdür: `DATABASE_URL` verilince Postgres (Supabase/Neon/lokal Docker), verilmezse gömülü PGlite. Prod'da `DATABASE_URL` ayarlı.
 
 Multi-tenant fish-market (balık hali) management system. TypeScript monorepo:
 
-- **server/** — Fastify + Drizzle ORM + better-sqlite3 + Zod. Multi-tenant, JWT auth, page-level RBAC, audit log.
+- **server/** — Fastify 5 + Drizzle ORM (PGlite / Postgres) + Zod. Multi-tenant, JWT auth, page-level RBAC, audit log.
 - **client/** — React + Vite + Ant Design PWA.
 
 > e-Belge (Uyumsoft) and payment gateway are implemented against **mock providers with mock credentials** in Phase 1 — they behave as if working. Real integrations are Phase 2 (see GitHub issues labeled `phase-2`).
 
-## Quick start
+## Lokal geliştirme (quick start)
+
+Gereksinim: **Node 20+** (22 önerilir). Ayrı veritabanı kurulumu GEREKMEZ — gömülü PGlite kullanılır.
 
 ```bash
-npm install          # install all workspaces
-npm run migrate      # create the SQLite schema (server/data/halboxpro.sqlite)
-npm run seed         # seed 2 demo tenants (demo / ege), users: admin@demo.test / secret1
-npm run dev          # API on :3001, client on :5173
-npm test             # server unit + integration tests (Vitest)
-npm run test:e2e     # Playwright e2e (client, against localhost)
+git clone https://github.com/aliemrahpekesen/halapp.git && cd halapp
+npm install          # tüm workspace'ler
+npm run dev          # API :3001 + web :5173 (Vite proxy API'ye yönlendirir)
 ```
 
-## Demo logins (after `npm run seed`)
+- Dev sunucusu açılışta **demo verisini otomatik seed eder** (idempotent) — tarayıcıda http://localhost:5173 açıp `demo / admin@demo.test / secret1` ile girin.
+- Veriler **`server/data/pglite`** dizinine kalıcı yazılır; yeniden başlatınca durur. Sıfırlamak için dizini silin.
+
+```bash
+npm test             # server unit + integration testleri (Vitest, bellek-içi DB)
+npm run test:e2e     # Playwright e2e (client, localhost'a karşı)
+```
+
+### Ortam değişkenleri (server)
+
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `DATABASE_URL` | — | Verilirse Postgres'e bağlanır (Supabase/Neon/lokal). Verilmezse gömülü PGlite. |
+| `DB_SSL` | `require` | `disable` = SSL yok (lokal Docker Postgres), `verify` = tam sertifika doğrulama. |
+| `PGLITE_DIR` | `data/pglite` | PGlite veri dizini; boş (`PGLITE_DIR=`) bellek-içi çalıştırır. Testler hep bellek-içi. |
+| `SEED_DEMO` | `1` | `0` = açılışta demo seed'i atla (otomatik seed yalnız PGlite modunda). |
+| `JWT_SECRET` | dev secret | Prod'da zorunlu, ≥24 karakter — aksi halde uygulama boot etmez. |
+| `APP_URL` | — | Prod'da CORS'u bu origin'e kısıtlar. |
+
+Lokal Postgres tercih ederseniz: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16`, ardından `DATABASE_URL=postgres://postgres:dev@localhost:5432/postgres DB_SSL=disable npm run dev` ve aynı env ile bir kez `npm run seed`.
+
+## Demo logins
 
 | Tenant slug | Email | Şifre | Rol |
 |---|---|---|---|
@@ -80,7 +100,7 @@ To auto-install deps in fresh web sessions, add to `.claude/settings.json`:
 | Yönetim | kullanıcı & rol, yetki matrisi, audit viewer, bildirim, destek, tenant admin, dashboard |
 | Mobil/PWA | hızlı tahsilat + bakiyeler, kurulabilir PWA |
 
-**Test durumu:** 66 backend (Vitest) + 5 e2e (Playwright) yeşil.
+**Test durumu:** 82 backend (Vitest) + 5 e2e (Playwright) yeşil.
 
 ## Project tracking
 
